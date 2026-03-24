@@ -1,0 +1,42 @@
+version = 0.1
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.deploy.parameters]
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+region = "sa-east-1"
+profile = "YOUR_AWS_PROFILE"
+
+[dev.deploy.parameters]
+stack_name = "formalizese-hub"
+s3_prefix = "formalizese-hub-dev"
+region = "sa-east-1"
+profile = "YOUR_AWS_PROFILE"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = "Environment=dev DatabasePassword={{resolve:ssm:/formalizese/dev/db-password}} VpcId={{resolve:ssm:/formalizese/dev/vpc-id}} Subnet1Id={{resolve:ssm:/formalizese/dev/subnet-1-id}} Subnet2Id={{resolve:ssm:/formalizese/dev/subnet-2-id}}"
+
+[staging.deploy.parameters]
+stack_name = "formalizese-hub"
+s3_prefix = "formalizese-hub-staging"
+region = "sa-east-1"
+profile = "YOUR_AWS_PROFILE"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = "Environment=staging DatabasePassword=CHANGE_ME VpcId=YOUR_VPC_ID Subnet1Id=YOUR_SUBNET_1_ID Subnet2Id=YOUR_SUBNET_2_ID"
+
+[prod.deploy.parameters]
+stack_name = "formalizese-hub"
+s3_prefix = "formalizese-hub-prod"
+region = "sa-east-1"
+profile = "YOUR_AWS_PROFILE"
+capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
+confirm_changeset = true
+resolve_s3 = true
+parameter_overrides = "Environment=prod DatabasePassword=CHANGE_ME VpcId=YOUR_VPC_ID Subnet1Id=YOUR_SUBNET_1_ID Subnet2Id=YOUR_SUBNET_2_ID"

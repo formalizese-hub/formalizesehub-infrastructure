@@ -1,0 +1,774 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: FormalizeSEHub - Infraestructura consolidada
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARÁMETROS
+# Para agregar un nuevo parámetro: añadirlo aquí y referenciarlo con !Ref
+# ─────────────────────────────────────────────────────────────────────────────
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, staging, prod]
+
+  DatabaseName:
+    Type: String
+    Default: formalizese
+
+  DatabaseUser:
+    Type: String
+    Default: postgres
+
+  DatabasePassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+
+  VpcId:
+    Type: String
+    Description: ID de la VPC existente
+
+  Subnet1Id:
+    Type: String
+    Description: Subnet privada 1 (AZ-a)
+
+  Subnet2Id:
+    Type: String
+    Description: Subnet privada 2 (AZ-b)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# GLOBALS — aplican a todas las funciones Lambda salvo override explícito
+# Para cambiar runtime/timeout/memoria globalmente, editar aquí
+# ─────────────────────────────────────────────────────────────────────────────
+Globals:
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization'"
+      AllowOrigin: "'*'"
+  Function:
+    Runtime: nodejs20.x
+    Timeout: 30
+    MemorySize: 512
+    Handler: index.handler
+    VpcConfig:
+      SecurityGroupIds:
+        - !Ref LambdaSecurityGroup
+      SubnetIds:
+        - !Ref Subnet1Id
+        - !Ref Subnet2Id
+    Environment:
+      Variables:
+        DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
+        DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
+        DB_NAME: !Ref DatabaseName
+        DB_USER: !Ref DatabaseUser
+        DB_PASSWORD: !Ref DatabasePassword
+        ENVIRONMENT: !Ref Environment
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CONDICIONES
+# ─────────────────────────────────────────────────────────────────────────────
+Conditions:
+  IsProd: !Equals [!Ref Environment, prod]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RECURSOS
+# ─────────────────────────────────────────────────────────────────────────────
+Resources:
+
+  # ── NETWORKING ──────────────────────────────────────────────────────────────
+
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group para Lambdas FormalizeSEHub
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group para RDS PostgreSQL
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+          Description: Solo acceso desde Lambdas
+
+  # ── RDS POSTGRESQL ──────────────────────────────────────────────────────────
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group para RDS FormalizeSEHub
+      SubnetIds:
+        - !Ref Subnet1Id
+        - !Ref Subnet2Id
+
+  PostgreSQLDatabase:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceIdentifier: !Sub formalizese-db-${Environment}
+      DBName: !Ref DatabaseName
+      Engine: postgres
+      EngineVersion: '15.17'
+      DBInstanceClass: !If [IsProd, db.t3.small, db.t3.micro]
+      AllocatedStorage: '20'
+      StorageType: gp3
+      MasterUsername: !Ref DatabaseUser
+      MasterUserPassword: !Ref DatabasePassword
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: !If [IsProd, false, true]
+      BackupRetentionPeriod: !If [IsProd, 7, 1]
+      DeletionProtection: !If [IsProd, true, false]
+
+  # ── S3 ──────────────────────────────────────────────────────────────────────
+
+  InvoicesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub formalizese-invoices-${Environment}-${AWS::AccountId}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldZips
+            Status: Enabled
+            ExpirationInDays: !If [IsProd, 90, 30]
+
+  # ── SQS ─────────────────────────────────────────────────────────────────────
+  # Flujo: DianDownloadFunction publica → InvoiceProcessingQueue → InvoiceProcessingFunction consume
+  #
+  # Para agregar una nueva cola:
+  #   1. Crear recurso AWS::SQS::Queue aquí
+  #   2. Crear su DLQ correspondiente
+  #   3. Agregar variable de entorno en la Lambda que publica
+  #   4. Agregar Events.SQS en la Lambda que consume
+
+  InvoiceProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-invoice-processing-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  InvoiceProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-invoice-processing-${Environment}
+      VisibilityTimeout: 360          # 6 min — debe ser >= timeout de la Lambda consumidora
+      MessageRetentionPeriod: 1209600 # 14 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt InvoiceProcessingDLQ.Arn
+        maxReceiveCount: 3
+
+  DianProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-dian-processing-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  DianProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-dian-processing-${Environment}
+      VisibilityTimeout: 360          # 6 min — >= timeout de DianProcessingFunction
+      MessageRetentionPeriod: 1209600 # 14 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DianProcessingDLQ.Arn
+        maxReceiveCount: 3
+
+  # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
+  # Permisos mínimos necesarios. Para agregar permisos a una Lambda específica,
+  # usar la propiedad Policies directamente en el recurso AWS::Serverless::Function
+
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub formalizese-lambda-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
+      Policies:
+        - PolicyName: FormalizeSEHubPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub ${InvoicesBucket.Arn}/*
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt InvoiceProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt InvoiceProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt DianProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt DianProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+
+  # ── API GATEWAY ──────────────────────────────────────────────────────────────
+  # Un único API Gateway para todos los servicios.
+  # Para agregar un nuevo endpoint: solo agregar Events en la Lambda correspondiente,
+  # SAM lo registra automáticamente en este API.
+
+  FormalizeSEApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub FormalizeSEHub-API-${Environment}
+      StageName: !Ref Environment
+      Description: API Gateway con CORS habilitado
+      BinaryMediaTypes:
+        - 'application/octet-stream'
+        - 'multipart/form-data'
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization'"
+        AllowOrigin: "'*'"
+      GatewayResponses:
+        DEFAULT_4XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        DEFAULT_5XX:
+          ResponseParameters:
+            Headers:
+              Access-Control-Allow-Origin: "'*'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+
+  # ── LAMBDAS: CLIENTES ────────────────────────────────────────────────────────
+  # Para agregar un nuevo endpoint de clientes:
+  #   1. Crear el servicio en formalizesehub-cliente/services/nuevo-servicio/
+  #   2. Agregar la función aquí siguiendo el mismo patrón
+  #   3. Ejecutar npm run build en el repo de cliente
+  #   4. Hacer deploy
+
+  ListarClientesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-clientes-${Environment}
+      CodeUri: ../formalizesehub-cliente/services/listar-clientes/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista todos los clientes activos
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /clientes
+            Method: GET
+
+  ListarClientesByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-clientes-id-${Environment}
+      CodeUri: ../formalizesehub-cliente/services/listar-clientes-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Obtiene un cliente por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /clientes/{id}
+            Method: GET
+
+  CrearClienteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-cliente-${Environment}
+      CodeUri: ../formalizesehub-cliente/services/crear-cliente/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea un nuevo cliente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /clientes
+            Method: POST
+
+  ActualizarClienteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-cliente-${Environment}
+      CodeUri: ../formalizesehub-cliente/services/actualizar-cliente/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza un cliente existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /clientes/{id}
+            Method: PUT
+
+  EliminarClienteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-cliente-${Environment}
+      CodeUri: ../formalizesehub-cliente/services/eliminar-cliente/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Elimina lógicamente un cliente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /clientes/{id}
+            Method: DELETE
+
+  # ── LAMBDAS: DESCARGAS ─────────────────────────────────────────────────────
+
+  ListarDescargasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-descargas-${Environment}
+      CodeUri: ../formalizesehub-descargas/services/listar-descargas/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista descargas por cliente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /descargas
+            Method: GET
+
+  DetalleDescargaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-detalle-descarga-${Environment}
+      CodeUri: ../formalizesehub-descargas/services/listar-descargas/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Detalle de una descarga con facturas y proveedores
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /descargas/{id}
+            Method: GET
+
+  DetalleFacturaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-detalle-factura-${Environment}
+      CodeUri: ../formalizesehub-descargas/services/detalle-factura/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Detalle de una factura con productos e impuestos
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /facturas/{id}
+            Method: GET
+
+  # ── LAMBDAS: CUENTAS CONTABLES ───────────────────────────────────────────────
+
+  ListarCuentasContablesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-cuentas-contables-${Environment}
+      CodeUri: ../formalizesehub-cuentas-contables/services/listar-cuentas-contables/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista todas las cuentas contables activas
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables
+            Method: GET
+
+  ListarCuentasContablesByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-cuentas-contables-id-${Environment}
+      CodeUri: ../formalizesehub-cuentas-contables/services/listar-cuentas-contables-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Obtiene una cuenta contable por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/{id}
+            Method: GET
+
+  CrearCuentaContableFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-cuenta-contable-${Environment}
+      CodeUri: ../formalizesehub-cuentas-contables/services/crear-cuenta-contable/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea una nueva cuenta contable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables
+            Method: POST
+
+  ActualizarCuentaContableFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-cuenta-contable-${Environment}
+      CodeUri: ../formalizesehub-cuentas-contables/services/actualizar-cuenta-contable/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza una cuenta contable existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/{id}
+            Method: PUT
+
+  EliminarCuentaContableFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-cuenta-contable-${Environment}
+      CodeUri: ../formalizesehub-cuentas-contables/services/eliminar-cuenta-contable/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Elimina lógicamente una cuenta contable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/{id}
+            Method: DELETE
+
+  CargarMasivaCuentasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-cargar-masiva-cuentas-${Environment}
+      CodeUri: ../formalizesehub-cuentas-contables/services/cargar-masiva/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Carga masiva de cuentas contables desde Excel
+      Timeout: 60
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/cargar-masiva
+            Method: POST
+
+  # ── LAMBDAS: PARAMETRIZACIÓN ─────────────────────────────────────────────────
+
+  ListarCuentasProveedoresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-cuentas-proveedores-${Environment}
+      CodeUri: ../formalizesehub-parametrizacion/services/listar-cuentas-proveedores/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista cuentas contables asociadas a proveedores
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas
+            Method: GET
+
+  ListarCuentasProveedorByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-cuentas-proveedor-id-${Environment}
+      CodeUri: ../formalizesehub-parametrizacion/services/listar-cuentas-proveedor-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista cuentas de un proveedor por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas/{id}
+            Method: GET
+
+  CrearCuentaProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-cuenta-proveedor-${Environment}
+      CodeUri: ../formalizesehub-parametrizacion/services/crear-cuenta-proveedor/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea una cuenta para un proveedor
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas
+            Method: POST
+
+  ActualizarCuentaProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-cuenta-proveedor-${Environment}
+      CodeUri: ../formalizesehub-parametrizacion/services/actualizar-cuenta-proveedor/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza una cuenta de proveedor
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas/{id}
+            Method: PUT
+
+  EliminarCuentaProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-cuenta-proveedor-${Environment}
+      CodeUri: ../formalizesehub-parametrizacion/services/eliminar-cuenta-proveedor/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Elimina lógicamente una cuenta de proveedor
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas/{id}
+            Method: DELETE
+
+  # ── LAMBDAS: PROVEEDORES ─────────────────────────────────────────────────────
+
+  ListarProveedoresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-proveedores-${Environment}
+      CodeUri: ../formalizesehub-proveedores/services/listar-proveedores/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista todos los proveedores activos
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores
+            Method: GET
+
+  ListarProveedoresByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-proveedores-id-${Environment}
+      CodeUri: ../formalizesehub-proveedores/services/listar-proveedores-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Obtiene un proveedor por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/{id}
+            Method: GET
+
+  CrearProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-proveedor-${Environment}
+      CodeUri: ../formalizesehub-proveedores/services/crear-proveedor/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea un nuevo proveedor
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores
+            Method: POST
+
+  ActualizarProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-proveedor-${Environment}
+      CodeUri: ../formalizesehub-proveedores/services/actualizar-proveedor/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza un proveedor existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/{id}
+            Method: PUT
+
+  EliminarProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-proveedor-${Environment}
+      CodeUri: ../formalizesehub-proveedores/services/eliminar-proveedor/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Elimina lógicamente un proveedor
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/{id}
+            Method: DELETE
+
+  # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
+  # Flujo completo:
+  #   POST /dian/download
+  #     → API Gateway publica directamente en DianProcessingQueue (responde 202)
+  #       → DianProcessingQueue (SQS trigger)
+  #         → DianProcessingFunction (hace scraping, descarga Excel, sube a S3)
+  #           → InvoiceProcessingQueue (SQS trigger)
+  #             → InvoiceProcessingFunction (procesa Excel+XML, persiste en DB)
+
+  # Lambda proxy: POST /dian/download → SQS (reemplaza integración directa VTL)
+  DianDownloadProxyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-dian-download-proxy-${Environment}
+      CodeUri: ../formalizesehub-dian-download-proxy/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Proxy Lambda - recibe POST /dian/download y envía a SQS
+      Timeout: 10
+      MemorySize: 256
+      # Sin VPC — solo necesita acceso a SQS
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
+      Environment:
+        Variables:
+          SQS_DIAN_PROCESSING_URL: !Ref DianProcessingQueue
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /dian/download
+            Method: POST
+
+  DianProcessingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-dian-processing-${Environment}
+      CodeUri: ../formalizesehub-dian-download/dist/
+      Runtime: nodejs22.x
+      Timeout: 300
+      MemorySize: 1024
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Consume SQS, hace scraping DIAN, sube ZIP a S3
+      # Sin VPC — necesita salida a internet para scraping en catalogo-vpfe.dian.gov.co
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref InvoicesBucket
+          SQS_INVOICE_PROCESSING_URL: !Ref InvoiceProcessingQueue
+          DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
+          DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
+          DB_NAME: !Ref DatabaseName
+          DB_USER: !Ref DatabaseUser
+          DB_PASSWORD: !Ref DatabasePassword
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt DianProcessingQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+  InvoiceProcessingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-invoice-processing-${Environment}
+      CodeUri: ../formalizesehub-invoice-processing/dist/
+      Runtime: nodejs22.x
+      Timeout: 300
+      MemorySize: 1024
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
+      # Sin VPC — necesita salida a internet para descargar XMLs de la DIAN
+      # El RDS tiene PubliclyAccessible: true en dev, accesible por endpoint público
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref InvoicesBucket
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt InvoiceProcessingQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OUTPUTS
+# ─────────────────────────────────────────────────────────────────────────────
+Outputs:
+  ApiUrl:
+    Description: URL base del API Gateway
+    Value: !Sub https://${FormalizeSEApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+    Export:
+      Name: !Sub FormalizeSEHub-ApiUrl-${Environment}
+
+  DatabaseEndpoint:
+    Description: Endpoint de PostgreSQL
+    Value: !GetAtt PostgreSQLDatabase.Endpoint.Address
+    Export:
+      Name: !Sub FormalizeSEHub-DB-Endpoint-${Environment}
+
+  InvoicesBucketName:
+    Description: Bucket S3 para facturas DIAN
+    Value: !Ref InvoicesBucket
+    Export:
+      Name: !Sub FormalizeSEHub-InvoicesBucket-${Environment}
+
+  InvoiceProcessingQueueUrl:
+    Description: URL de la cola SQS de procesamiento
+    Value: !Ref InvoiceProcessingQueue
+    Export:
+      Name: !Sub FormalizeSEHub-InvoiceProcessingQueue-${Environment}

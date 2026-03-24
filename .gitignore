@@ -1,0 +1,38 @@
+# SAM build artifacts
+.aws-sam/
+
+# Database dumps
+database/*.sql
+!database/queries-ejemplo.sql
+
+# SAM config (contains VPC IDs, subnet IDs, profiles)
+samconfig.toml
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temporary files
+/tmp/
+
+# Database dumps
+*.sql
+!database/schema.sql
+!database/queries-ejemplo.sql
