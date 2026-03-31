@@ -681,7 +681,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-retenciones-id-${Environment}
-      CodeUri: ../formalizesehub-retenciones/services/listar-retenciones/dist.zip
+      CodeUri: ../formalizesehub-retenciones/services/listar-retenciones-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Obtiene una retención por ID
       Events:
