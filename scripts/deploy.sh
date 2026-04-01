@@ -34,12 +34,15 @@ WORKSPACE_REPOS=(
     "formalizesehub-cuentas-contables"
     "formalizesehub-parametrizacion"
     "formalizesehub-proveedores"
+    "formalizesehub-retenciones"
+    "formalizesehub-descargas"
 )
 
 # ── Repos con build propio ────────────────────────────
 STANDALONE_REPOS=(
     "formalizesehub-dian-download"
     "formalizesehub-invoice-processing"
+    "formalizesehub-dian-download-proxy"
 )
 
 echo "🔨 Building lambdas..."

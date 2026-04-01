@@ -6,12 +6,12 @@ Stack en AWS SAM que despliega todos los servicios del sistema de facturación e
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                        INTERNET                                          │
+│                                        INTERNET                                         │
 └─────────────────────────────────────────┬───────────────────────────────────────────────┘
                                           │
                                           ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                              API Gateway (REST)                                          │
+│                              API Gateway (REST)                                         │
 │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐│
 │  │  /clientes  │ │/proveedores │ │  /cuentas-  │ │ /descargas  │ │   /dian/download    ││
 │  │             │ │             │ │  contables  │ │ /facturas   │ │                     ││
@@ -20,7 +20,7 @@ Stack en AWS SAM que despliega todos los servicios del sistema de facturación e
           │               │               │               │                   │
           ▼               ▼               ▼               ▼                   ▼
 ┌─────────────────────────────────────────────────────────────────┐ ┌─────────────────────┐
-│                      Lambda Functions (CRUD)                     │ │  DianDownload       │
+│                      Lambda Functions (CRUD)                    │ │  DianDownload       │
 │  ┌───────────┐ ┌───────────┐ ┌───────────┐ ┌───────────────────┐│ │  Lambda             │
 │  │ Clientes  │ │Proveedores│ │  Cuentas  │ │  Parametrización  ││ │  (nodejs22.x, 5min) │
 │  │  (5)      │ │   (5)     │ │Contables  │ │  Descargas        ││ └──────────┬──────────┘
@@ -32,9 +32,9 @@ Stack en AWS SAM que despliega todos los servicios del sistema de facturación e
                                      │                                         │
                                      ▼                                         ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                                      VPC                                                 │
+│                                      VPC                                                │
 │  ┌─────────────────────────────────────────────┐    ┌─────────────────────────────────┐ │
-│  │              Private Subnets                 │    │           S3 Bucket             │ │
+│  │              Private Subnets                │    │           S3 Bucket             │ │
 │  │  ┌─────────────────────────────────────┐    │    │    formalizese-invoices-{env}   │ │
 │  │  │         RDS PostgreSQL              │    │    │    ┌─────────────────────────┐  │ │
 │  │  │       formalizese-db-{env}          │    │    │    │  ZIPs facturas DIAN     │  │ │
@@ -46,29 +46,29 @@ Stack en AWS SAM que despliega todos los servicios del sistema de facturación e
 │  │  │  • redistribucion_contable          │    │                      ▼                 │
 │  │  └─────────────────────────────────────┘    │    ┌─────────────────────────────────┐ │
 │  └─────────────────────────────────────────────┘    │         SQS Queues              │ │
-│                                                      │  ┌───────────────────────────┐  │ │
-│                                                      │  │ invoice-processing-queue  │  │ │
-│                                                      │  │          │                │  │ │
-│                                                      │  │          ▼                │  │ │
-│                                                      │  │ ┌─────────────────────┐   │  │ │
-│                                                      │  │ │InvoiceProcessing    │   │  │ │
-│                                                      │  │ │Lambda (5min)        │   │  │ │
-│                                                      │  │ └─────────────────────┘   │  │ │
-│                                                      │  │          │                │  │ │
-│                                                      │  │          ▼ (3 retries)    │  │ │
-│                                                      │  │ ┌─────────────────────┐   │  │ │
-│                                                      │  │ │ DLQ (Dead Letter)   │   │  │ │
-│                                                      │  │ └─────────────────────┘   │  │ │
-│                                                      │  └───────────────────────────┘  │ │
-│                                                      └─────────────────────────────────┘ │
+│                                                     │  ┌───────────────────────────┐  │ │
+│                                                     │  │ invoice-processing-queue  │  │ │
+│                                                     │  │          │                │  │ │
+│                                                     │  │          ▼                │  │ │
+│                                                     │  │ ┌─────────────────────┐   │  │ │
+│                                                     │  │ │InvoiceProcessing    │   │  │ │
+│                                                     │  │ │Lambda (5min)        │   │  │ │
+│                                                     │  │ └─────────────────────┘   │  │ │
+│                                                     │  │          │                │  │ │
+│                                                     │  │          ▼ (3 retries)    │  │ │
+│                                                     │  │ ┌─────────────────────┐   │  │ │
+│                                                     │  │ │ DLQ (Dead Letter)   │   │  │ │
+│                                                     │  │ └─────────────────────┘   │  │ │
+│                                                     │  └───────────────────────────┘  │ │
+│                                                     └─────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Flujo de Descarga DIAN
 
 ```
-┌──────────┐     POST /dian/download      ┌─────────────────┐
-│ Frontend │ ─────────────────────────────▶│ DianDownload    │
+┌──────────┐     POST /dian/download       ┌─────────────────┐
+│ Frontend │ ───────────────────────────▶ │ DianDownload    │
 └──────────┘   {clientId, fechas, cookies} │ Lambda          │
                                            └────────┬────────┘
                                                     │

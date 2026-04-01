@@ -655,6 +655,88 @@ Resources:
             Path: /proveedores/{id}
             Method: DELETE
 
+  # ── LAMBDAS: RETENCIONES ─────────────────────────────────────────────────────
+  # Para agregar un nuevo endpoint de retenciones:
+  #   1. Crear el servicio en formalizesehub-retenciones/services/nuevo-servicio/
+  #   2. Agregar la función aquí siguiendo el mismo patrón
+  #   3. Ejecutar npm run build en el repo de retenciones
+  #   4. Hacer deploy
+
+  ListarRetencionesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-retenciones-${Environment}
+      CodeUri: ../formalizesehub-retenciones/services/listar-retenciones/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista todas las retenciones activas
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones
+            Method: GET
+
+  ListarRetencionesByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-retenciones-id-${Environment}
+      CodeUri: ../formalizesehub-retenciones/services/listar-retenciones-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Obtiene una retención por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones/{id}
+            Method: GET
+
+  CrearRetencionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-retencion-${Environment}
+      CodeUri: ../formalizesehub-retenciones/services/crear-retencion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea una nueva retención tributaria
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones
+            Method: POST
+
+  ActualizarRetencionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-retencion-${Environment}
+      CodeUri: ../formalizesehub-retenciones/services/actualizar-retencion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza una retención existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones/{id}
+            Method: PUT
+
+  EliminarRetencionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-retencion-${Environment}
+      CodeUri: ../formalizesehub-retenciones/services/eliminar-retencion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Elimina lógicamente una retención (soft delete)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones/{id}
+            Method: DELETE
+
   # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
   # Flujo completo:
   #   POST /dian/download

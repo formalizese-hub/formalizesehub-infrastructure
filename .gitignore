@@ -1,9 +1,10 @@
 # SAM build artifacts
 .aws-sam/
 
-# Database dumps
+# Database dumps (solo archivos directos, no subcarpetas)
 database/*.sql
 !database/queries-ejemplo.sql
+!database/migrations/*.sql
 
 # SAM config (contains VPC IDs, subnet IDs, profiles)
 samconfig.toml
@@ -36,3 +37,4 @@ Thumbs.db
 *.sql
 !database/schema.sql
 !database/queries-ejemplo.sql
+!database/migrations/*.sql
