@@ -737,6 +737,98 @@ Resources:
             Path: /retenciones/{id}
             Method: DELETE
 
+  # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
+
+  CrearRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/crear-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea una redistribución contable (encabezado + detalles)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones
+            Method: POST
+
+  ListarRedistribucionesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-redistribuciones-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribuciones/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista redistribuciones contables con filtros opcionales
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones
+            Method: GET
+
+  ListarRedistribucionByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-redistribucion-id-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribucion-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Obtiene una redistribución con sus detalles por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/{id}
+            Method: GET
+
+  ActualizarRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/actualizar-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza el encabezado de una redistribución contable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/{id}
+            Method: PUT
+
+  EliminarRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/eliminar-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Elimina lógicamente una redistribución (soft delete)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/{id}
+            Method: DELETE
+
+  GenerarTxtRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-txt-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/generar-txt-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Genera la estructura base del archivo plano TXT compatible con TNS
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/txt
+            Method: GET
+
   # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
   # Flujo completo:
   #   POST /dian/download
