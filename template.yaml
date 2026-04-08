@@ -408,6 +408,20 @@ Resources:
             Path: /facturas/{id}
             Method: GET
 
+  ActualizarGrupoRetencionFacturaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura-      CodeUri: ../formalizesehub-descargas/services/actualizar-grupo-retencion-factura/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza datos de pre-validacion de grupo de retencion en una factura
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /facturas/{id}/grupo-retencion
+            Method: PATCH
+
   # ── LAMBDAS: CUENTAS CONTABLES ───────────────────────────────────────────────
 
   ListarCuentasContablesFunction:
