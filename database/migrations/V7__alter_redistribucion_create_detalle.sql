@@ -1,7 +1,7 @@
 -- V7: Ajusta la tabla redistribucion al nuevo esquema y crea detalle_redistribucion
 
 -- ─── TABLA: redistribucion (ENCABEZADO) ─────────────────────────────────────
-ALTER TABLE redistribucion
+ALTER TABLE redistribucion_contable
   ADD COLUMN IF NOT EXISTS tipo_comprobante   VARCHAR(20),
   ADD COLUMN IF NOT EXISTS codigo_prefijo     VARCHAR(20),
   ADD COLUMN IF NOT EXISTS numero_comprobante VARCHAR(50),
@@ -17,7 +17,7 @@ ALTER TABLE redistribucion
 -- ─── TABLA: detalle_redistribucion (ASIENTOS CONTABLES) ─────────────────────
 CREATE TABLE IF NOT EXISTS detalle_redistribucion (
   id                    VARCHAR(36)    PRIMARY KEY,
-  redistribucion_id     VARCHAR(36)    NOT NULL REFERENCES redistribucion(id) ON DELETE CASCADE,
+  redistribucion_id     VARCHAR(36)    NOT NULL REFERENCES redistribucion_contable(id) ON DELETE CASCADE,
   num_cuenta_contable   VARCHAR(50)    NOT NULL,
   concepto              VARCHAR(200),
   valor                 NUMERIC(15,2)  NOT NULL,

@@ -36,6 +36,7 @@ WORKSPACE_REPOS=(
     "formalizesehub-proveedores"
     "formalizesehub-retenciones"
     "formalizesehub-descargas"
+    "formalizesehub-redistribuciones"
 )
 
 # ── Repos con build propio ────────────────────────────
