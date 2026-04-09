@@ -10,7 +10,10 @@ Parameters:
   Environment:
     Type: String
     Default: dev
-    AllowedValues: [dev, staging, prod]
+    AllowedValues:
+      - dev
+      - staging
+      - prod
 
   DatabaseName:
     Type: String
@@ -44,9 +47,9 @@ Parameters:
 Globals:
   Api:
     Cors:
-      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type,Authorization'"
-      AllowOrigin: "'*'"
+      AllowMethods: '''GET,POST,PUT,PATCH,DELETE,OPTIONS'''
+      AllowHeaders: '''Content-Type,Authorization'''
+      AllowOrigin: '''*'''
   Function:
     Runtime: nodejs20.x
     Timeout: 30
@@ -71,7 +74,9 @@ Globals:
 # CONDICIONES
 # ─────────────────────────────────────────────────────────────────────────────
 Conditions:
-  IsProd: !Equals [!Ref Environment, prod]
+  IsProd: !Equals
+    - !Ref Environment
+    - prod
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RECURSOS
@@ -120,7 +125,10 @@ Resources:
       DBName: !Ref DatabaseName
       Engine: postgres
       EngineVersion: '15.17'
-      DBInstanceClass: !If [IsProd, db.t3.small, db.t3.micro]
+      DBInstanceClass: !If
+        - IsProd
+        - db.t3.small
+        - db.t3.micro
       AllocatedStorage: '20'
       StorageType: gp3
       MasterUsername: !Ref DatabaseUser
@@ -128,9 +136,18 @@ Resources:
       VPCSecurityGroups:
         - !Ref RDSSecurityGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
-      PubliclyAccessible: !If [IsProd, false, true]
-      BackupRetentionPeriod: !If [IsProd, 7, 1]
-      DeletionProtection: !If [IsProd, true, false]
+      PubliclyAccessible: !If
+        - IsProd
+        - false
+        - true
+      BackupRetentionPeriod: !If
+        - IsProd
+        - 7
+        - 1
+      DeletionProtection: !If
+        - IsProd
+        - true
+        - false
 
   # ── S3 ──────────────────────────────────────────────────────────────────────
 
@@ -147,7 +164,10 @@ Resources:
         Rules:
           - Id: ExpireOldZips
             Status: Enabled
-            ExpirationInDays: !If [IsProd, 90, 30]
+            ExpirationInDays: !If
+              - IsProd
+              - 90
+              - 30
 
   # ── SQS ─────────────────────────────────────────────────────────────────────
   # Flujo: DianDownloadFunction publica → InvoiceProcessingQueue → InvoiceProcessingFunction consume
@@ -162,13 +182,13 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-dlq-${Environment}
-      MessageRetentionPeriod: 1209600  # 14 días
+      MessageRetentionPeriod: 1209600 # 14 días
 
   InvoiceProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-${Environment}
-      VisibilityTimeout: 360          # 6 min — debe ser >= timeout de la Lambda consumidora
+      VisibilityTimeout: 360 # 6 min — debe ser >= timeout de la Lambda consumidora
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -179,13 +199,13 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-dian-processing-dlq-${Environment}
-      MessageRetentionPeriod: 1209600  # 14 días
+      MessageRetentionPeriod: 1209600 # 14 días
 
   DianProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-dian-processing-${Environment}
-      VisibilityTimeout: 360          # 6 min — >= timeout de DianProcessingFunction
+      VisibilityTimeout: 360 # 6 min — >= timeout de DianProcessingFunction
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -259,25 +279,25 @@ Resources:
       StageName: !Ref Environment
       Description: API Gateway con CORS habilitado
       BinaryMediaTypes:
-        - 'application/octet-stream'
-        - 'multipart/form-data'
+        - application/octet-stream
+        - multipart/form-data
       Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization'"
-        AllowOrigin: "'*'"
+        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
+        AllowHeaders: '''Content-Type,Authorization'''
+        AllowOrigin: '''*'''
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Headers: '''Content-Type,Authorization'''
+              Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
-              Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Origin: '''*'''
+              Access-Control-Allow-Headers: '''Content-Type,Authorization'''
+              Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
 
   # ── LAMBDAS: CLIENTES ────────────────────────────────────────────────────────
   # Para agregar un nuevo endpoint de clientes:
@@ -411,7 +431,11 @@ Resources:
   ActualizarGrupoRetencionFacturaFunction:
     Type: AWS::Serverless::Function
     Properties:
+<<<<<<< Updated upstream
       FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura
+=======
+      FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura-${Environment}
+>>>>>>> Stashed changes
       CodeUri: ../formalizesehub-descargas/services/actualizar-grupo-retencion-factura/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Actualiza datos de pre-validacion de grupo de retencion en una factura
@@ -916,7 +940,8 @@ Resources:
       Timeout: 300
       MemorySize: 1024
       Role: !GetAtt LambdaExecutionRole.Arn
-      Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
+      Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en
+        PostgreSQL
       # Sin VPC — necesita salida a internet para descargar XMLs de la DIAN
       # El RDS tiene PubliclyAccessible: true en dev, accesible por endpoint público
       VpcConfig:
