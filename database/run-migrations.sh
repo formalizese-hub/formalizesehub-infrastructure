@@ -5,7 +5,10 @@
 # FormalizeSE Hub - Infraestructura
 # =====================================================
 
-set -e
+set -euo pipefail
+
+# Desactivar set -e después de la fase de conexión (se reactiva solo donde es crítico)
+# Para la fase de migraciones se maneja errores manualmente
 
 # Colores
 RED='\033[0;31m'
@@ -137,8 +140,8 @@ for migration_file in $(find "$MIGRATIONS_DIR" -name "V*.sql" | sort); do
     
     MIGRATION_COUNT=$((MIGRATION_COUNT + 1))
     
-    # Verificar si ya fue ejecutada
-    if echo "$EXECUTED_VERSIONS" | grep -q "^$version$"; then
+    # Verificar si ya fue ejecutada (trim espacios de psql)
+    if echo "$EXECUTED_VERSIONS" | sed 's/^[[:space:]]*//' | grep -qx "$version"; then
         echo -e "  ${BLUE}[EJECUTADA]${NC} $filename"
         EXECUTED_COUNT=$((EXECUTED_COUNT + 1))
     else
@@ -171,44 +174,67 @@ fi
 echo ""
 print_info "Ejecutando migraciones...\n"
 
+# Desactivar set -e para manejar errores de migración manualmente
+set +e
+
 # Ejecutar migraciones pendientes
 ERROR_COUNT=0
+SUCCESS_COUNT=0
+FAILED_MIGRATIONS=""
+
 for migration_file in $(find "$MIGRATIONS_DIR" -name "V*.sql" | sort); do
     filename=$(basename "$migration_file")
     version=$(echo "$filename" | sed 's/V\([0-9]*\)__.*/\1/')
     description=$(echo "$filename" | sed 's/V[0-9]*__\(.*\)\.sql/\1/')
     
-    # Verificar si ya fue ejecutada
-    if echo "$EXECUTED_VERSIONS" | grep -q "^$version$"; then
+    # Verificar si ya fue ejecutada (trim espacios de psql)
+    if echo "$EXECUTED_VERSIONS" | sed 's/^[[:space:]]*//' | grep -qx "$version"; then
         continue
     fi
     
     echo -e "${YELLOW}→ Ejecutando:${NC} $filename"
     
-    if psql -h "$DB_ENDPOINT" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-        -f "$migration_file" > /dev/null 2>&1; then
-        
+    # Capturar salida y error de psql
+    MIGRATION_OUTPUT=$(psql -h "$DB_ENDPOINT" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+        -f "$migration_file" 2>&1)
+    MIGRATION_EXIT_CODE=$?
+    
+    if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
         # Registrar en tabla de control
         psql -h "$DB_ENDPOINT" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
             -c "INSERT INTO schema_version (version, description, type, script, installed_by, installed_on, execution_time, success) 
                 VALUES ('$version', '$description', 'SQL', '$filename', 'migration-script', NOW(), 0, true);" > /dev/null 2>&1
         
         print_success "$filename"
+        SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
     else
         print_error "$filename"
+        echo -e "${RED}  Detalle del error:${NC}"
+        echo "$MIGRATION_OUTPUT" | sed 's/^/    /'
+        echo ""
         ERROR_COUNT=$((ERROR_COUNT + 1))
+        FAILED_MIGRATIONS="$FAILED_MIGRATIONS\n    - $filename"
     fi
 done
+
+set -e
 
 unset PGPASSWORD
 
 echo ""
 print_header "Resumen de la ejecución"
 
+echo -e "  Exitosas:  ${GREEN}$SUCCESS_COUNT${NC}"
+echo -e "  Fallidas:  ${RED}$ERROR_COUNT${NC}"
+echo -e "  Omitidas:  ${BLUE}$EXECUTED_COUNT (ya ejecutadas)${NC}"
+echo ""
+
 if [ "$ERROR_COUNT" -eq 0 ]; then
     print_success "¡Todas las migraciones completadas exitosamente!"
     exit 0
 else
-    print_error "$ERROR_COUNT migraciones fallaron"
+    print_error "$ERROR_COUNT migraciones fallaron:"
+    echo -e "$FAILED_MIGRATIONS"
+    echo ""
     exit 1
 fi
