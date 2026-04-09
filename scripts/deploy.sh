@@ -36,6 +36,7 @@ WORKSPACE_REPOS=(
     "formalizesehub-proveedores"
     "formalizesehub-retenciones"
     "formalizesehub-descargas"
+    "formalizesehub-redistribuciones"
 )
 
 # ── Repos con build propio ────────────────────────────
@@ -79,7 +80,8 @@ echo ""
 echo "🚀 SAM deploy [$ENV]..."
 sam deploy \
   --config-file "$INFRA_DIR/samconfig.toml" \
-  --config-env "$ENV"
+  --config-env "$ENV" \
+  --template-file "$INFRA_DIR/template.yaml"
 
 echo ""
 echo "=================================================="
