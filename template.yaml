@@ -411,7 +411,7 @@ Resources:
   ActualizarGrupoRetencionFacturaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura-
+      FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura-${Environment}
       CodeUri: ../formalizesehub-descargas/services/actualizar-grupo-retencion-factura/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Actualiza datos de pre-validacion de grupo de retencion en una factura
