@@ -37,6 +37,12 @@ Parameters:
     Type: String
     Description: Subnet privada 2 (AZ-b)
 
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: Clave secreta para firmar JWT (mínimo 32 caracteres)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBALS — aplican a todas las funciones Lambda salvo override explícito
 # Para cambiar runtime/timeout/memoria globalmente, editar aquí
@@ -66,6 +72,7 @@ Globals:
         DB_USER: !Ref DatabaseUser
         DB_PASSWORD: !Ref DatabasePassword
         ENVIRONMENT: !Ref Environment
+        JWT_SECRET: !Ref JwtSecret
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONDICIONES
@@ -933,6 +940,145 @@ Resources:
             BatchSize: 1
             FunctionResponseTypes:
               - ReportBatchItemFailures
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAMBDAS: AUTENTICACIÓN Y USUARIOS
+# ─────────────────────────────────────────────────────────────────────────────
+
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auth-login-${Environment}
+      CodeUri: ../formalizesehub-auth/services/login/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Valida credenciales y emite JWT
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /auth/login
+            Method: POST
+
+  MisClientesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auth-mis-clientes-${Environment}
+      CodeUri: ../formalizesehub-auth/services/mis-clientes/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Devuelve los clientes de la organización del usuario autenticado
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /auth/mis-clientes
+            Method: GET
+
+  ListarRolesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-roles-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-roles/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista los roles disponibles (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /roles
+            Method: GET
+
+  ListarUsuariosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-usuarios-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-usuarios/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista usuarios de la organización (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios
+            Method: GET
+
+  ListarUsuarioIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-usuario-id-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-usuario-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Detalle de un usuario (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: GET
+
+  CrearUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/crear-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea un usuario en la organización (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios
+            Method: POST
+
+  ActualizarUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/actualizar-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Actualiza un usuario (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: PUT
+
+  EliminarUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/eliminar-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Elimina lógicamente un usuario (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: DELETE
+
+  AsignarClientesUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-asignar-clientes-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/asignar-clientes-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Asigna clientes a un usuario — preparado para fase 2 (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}/clientes
+            Method: PUT
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
