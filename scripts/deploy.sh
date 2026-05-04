@@ -30,6 +30,7 @@ echo ""
 
 # ── Repos con npm workspaces (build:all) ──────────────
 WORKSPACE_REPOS=(
+    "formalizesehub-auth"
     "formalizesehub-cliente"
     "formalizesehub-cuentas-contables"
     "formalizesehub-parametrizacion"
