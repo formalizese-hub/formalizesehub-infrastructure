@@ -43,6 +43,11 @@ Parameters:
     MinLength: 32
     Description: Clave secreta para firmar JWT (mínimo 32 caracteres)
 
+  SystemOrgId:
+    Type: String
+    Default: '00000000-0000-0000-0000-000000000001'
+    Description: UUID de la organización sistema reservada para el superadmin
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBALS — aplican a todas las funciones Lambda salvo override explícito
 # Para cambiar runtime/timeout/memoria globalmente, editar aquí
@@ -51,7 +56,7 @@ Globals:
   Api:
     Cors:
       AllowMethods: "'GET,POST,PUT, PATCH,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type,Authorization'"
+      AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
       AllowOrigin: "'*'"
   Function:
     Runtime: nodejs20.x
@@ -73,6 +78,7 @@ Globals:
         DB_PASSWORD: !Ref DatabasePassword
         ENVIRONMENT: !Ref Environment
         JWT_SECRET: !Ref JwtSecret
+        SYSTEM_ORG_ID: !Ref SystemOrgId
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONDICIONES
@@ -270,20 +276,20 @@ Resources:
         - 'multipart/form-data'
       Cors:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization'"
+        AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
         AllowOrigin: "'*'"
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
 
   # ── LAMBDAS: CLIENTES ────────────────────────────────────────────────────────
@@ -1079,6 +1085,36 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /usuarios/{id}/clientes
             Method: PUT
+
+  CrearOrganizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-organizacion-${Environment}
+      CodeUri: ../formalizesehub-auth/services/crear-organizacion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Crea una nueva organización (solo superadmin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones
+            Method: POST
+
+  ListarOrganizacionesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-organizaciones-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-organizaciones/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista todas las organizaciones activas (solo superadmin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones
+            Method: GET
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
