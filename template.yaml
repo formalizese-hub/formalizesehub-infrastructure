@@ -902,6 +902,9 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Consume SQS, hace scraping DIAN, sube ZIP a S3
       # Sin VPC — necesita salida a internet para scraping en catalogo-vpfe.dian.gov.co
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref InvoicesBucket
