@@ -1089,6 +1089,21 @@ Resources:
             Path: /usuarios/{id}/clientes
             Method: PUT
 
+  ListarClientesUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-clientes-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-clientes-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Lista los clientes accesibles de un usuario (asignados + propios) — solo admin
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}/clientes
+            Method: GET
+
   CrearOrganizacionFunction:
     Type: AWS::Serverless::Function
     Properties:
