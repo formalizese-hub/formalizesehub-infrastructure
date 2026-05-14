@@ -274,6 +274,7 @@ Resources:
       BinaryMediaTypes:
         - 'application/octet-stream'
         - 'multipart/form-data'
+        - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       Cors:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
@@ -855,6 +856,23 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/txt
+            Method: GET
+
+  GenerarExcelTnsRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-excel-tns-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/generar-excel-tns-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Genera archivo Excel TNS con redistribuciones contables
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/excel-tns
             Method: GET
 
   # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
