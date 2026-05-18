@@ -384,6 +384,9 @@ Resources:
       CodeUri: ../formalizesehub-descargas/services/listar-descargas/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Lista descargas por cliente
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
       Events:
         Api:
           Type: Api
