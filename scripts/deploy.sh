@@ -11,9 +11,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(dirname "$SCRIPT_DIR")"
 ROOT_DIR="$(dirname "$INFRA_DIR")"
 
-if [[ "$ENV" != "dev" && "$ENV" != "staging" && "$ENV" != "prod" ]]; then
+if [[ "$ENV" != "dev" && "$ENV" != "staging" && "$ENV" != "prod" && "$ENV" != "new" ]]; then
     echo "❌ Entorno inválido: $ENV"
-    echo "   Uso: ./scripts/deploy.sh [dev|staging|prod]"
+    echo "   Uso: ./scripts/deploy.sh [dev|staging|prod|new]"
     exit 1
 fi
 
