@@ -445,9 +445,6 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Lista descargas por cliente
-      Environment:
-        Variables:
-          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
       Events:
         Api:
           Type: Api
@@ -471,6 +468,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Detalle de una descarga con facturas y proveedores
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
       Events:
         Api:
           Type: Api
