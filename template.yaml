@@ -10,10 +10,7 @@ Parameters:
   Environment:
     Type: String
     Default: dev
-    AllowedValues:
-      - dev
-      - staging
-      - prod
+    AllowedValues: [dev, staging, prod]
 
   DatabaseName:
     Type: String
@@ -67,15 +64,9 @@ Parameters:
 Globals:
   Api:
     Cors:
-<<<<<<< Updated upstream
       AllowMethods: "'GET,POST,PUT, PATCH,DELETE,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
       AllowOrigin: "'*'"
-=======
-      AllowMethods: '''GET,POST,PUT,PATCH,DELETE,OPTIONS'''
-      AllowHeaders: '''Content-Type,Authorization'''
-      AllowOrigin: '''*'''
->>>>>>> Stashed changes
   Function:
     Runtime: nodejs20.x
     Timeout: 30
@@ -96,14 +87,8 @@ Globals:
 # CONDICIONES
 # ─────────────────────────────────────────────────────────────────────────────
 Conditions:
-<<<<<<< Updated upstream
   IsProd: !Equals [!Ref Environment, prod]
   UseVpcCondition: !Equals [!Ref UseVpc, 'true']
-=======
-  IsProd: !Equals
-    - !Ref Environment
-    - prod
->>>>>>> Stashed changes
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RECURSOS
@@ -156,15 +141,11 @@ Resources:
       DBName: !Ref DatabaseName
       Engine: postgres
       EngineVersion: '15.17'
-      DBInstanceClass: !If
-        - IsProd
-        - db.t3.small
-        - db.t3.micro
+      DBInstanceClass: !If [IsProd, db.t3.small, db.t3.micro]
       AllocatedStorage: '20'
       StorageType: gp3
       MasterUsername: !Ref DatabaseUser
       MasterUserPassword: !Ref DatabasePassword
-<<<<<<< Updated upstream
       VPCSecurityGroups: !If
         - UseVpcCondition
         - - !Ref RDSSecurityGroup
@@ -176,23 +157,6 @@ Resources:
       PubliclyAccessible: !If [IsProd, false, true]
       BackupRetentionPeriod: !If [IsProd, 7, 1]
       DeletionProtection: !If [IsProd, true, false]
-=======
-      VPCSecurityGroups:
-        - !Ref RDSSecurityGroup
-      DBSubnetGroupName: !Ref DBSubnetGroup
-      PubliclyAccessible: !If
-        - IsProd
-        - false
-        - true
-      BackupRetentionPeriod: !If
-        - IsProd
-        - 7
-        - 1
-      DeletionProtection: !If
-        - IsProd
-        - true
-        - false
->>>>>>> Stashed changes
 
   # ── S3 ──────────────────────────────────────────────────────────────────────
 
@@ -209,10 +173,7 @@ Resources:
         Rules:
           - Id: ExpireOldZips
             Status: Enabled
-            ExpirationInDays: !If
-              - IsProd
-              - 90
-              - 30
+            ExpirationInDays: !If [IsProd, 90, 30]
 
   # ── SQS ─────────────────────────────────────────────────────────────────────
   # Flujo: DianDownloadFunction publica → InvoiceProcessingQueue → InvoiceProcessingFunction consume
@@ -227,13 +188,13 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-dlq-${Environment}
-      MessageRetentionPeriod: 1209600 # 14 días
+      MessageRetentionPeriod: 1209600  # 14 días
 
   InvoiceProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-${Environment}
-      VisibilityTimeout: 360 # 6 min — debe ser >= timeout de la Lambda consumidora
+      VisibilityTimeout: 360          # 6 min — debe ser >= timeout de la Lambda consumidora
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -244,13 +205,13 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-dian-processing-dlq-${Environment}
-      MessageRetentionPeriod: 1209600 # 14 días
+      MessageRetentionPeriod: 1209600  # 14 días
 
   DianProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-dian-processing-${Environment}
-      VisibilityTimeout: 360 # 6 min — >= timeout de DianProcessingFunction
+      VisibilityTimeout: 360          # 6 min — >= timeout de DianProcessingFunction
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -324,7 +285,6 @@ Resources:
       StageName: !Ref Environment
       Description: API Gateway con CORS habilitado
       BinaryMediaTypes:
-<<<<<<< Updated upstream
         - 'application/octet-stream'
         - 'multipart/form-data'
         - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -332,19 +292,10 @@ Resources:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
         AllowOrigin: "'*'"
-=======
-        - application/octet-stream
-        - multipart/form-data
-      Cors:
-        AllowMethods: '''GET,POST,PUT,DELETE,OPTIONS'''
-        AllowHeaders: '''Content-Type,Authorization'''
-        AllowOrigin: '''*'''
->>>>>>> Stashed changes
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
-<<<<<<< Updated upstream
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
@@ -354,17 +305,6 @@ Resources:
               Access-Control-Allow-Origin: "'*'"
               Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
-=======
-              Access-Control-Allow-Origin: '''*'''
-              Access-Control-Allow-Headers: '''Content-Type,Authorization'''
-              Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
-        DEFAULT_5XX:
-          ResponseParameters:
-            Headers:
-              Access-Control-Allow-Origin: '''*'''
-              Access-Control-Allow-Headers: '''Content-Type,Authorization'''
-              Access-Control-Allow-Methods: '''GET,POST,PUT,DELETE,OPTIONS'''
->>>>>>> Stashed changes
 
   # ── LAMBDAS: CLIENTES ────────────────────────────────────────────────────────
   # Para agregar un nuevo endpoint de clientes:
@@ -505,9 +445,6 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Lista descargas por cliente
-      Environment:
-        Variables:
-          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
       Events:
         Api:
           Type: Api
@@ -531,6 +468,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Detalle de una descarga con facturas y proveedores
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
       Events:
         Api:
           Type: Api
@@ -1322,8 +1262,7 @@ Resources:
       Timeout: 300
       MemorySize: 1024
       Role: !GetAtt LambdaExecutionRole.Arn
-      Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en
-        PostgreSQL
+      Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
       # Sin VPC — necesita salida a internet para descargar XMLs de la DIAN
       # El RDS tiene PubliclyAccessible: true en dev, accesible por endpoint público
       VpcConfig:
