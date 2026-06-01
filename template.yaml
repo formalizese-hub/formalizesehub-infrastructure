@@ -1022,6 +1022,126 @@ Resources:
             Path: /retenciones/{id}
             Method: DELETE
 
+
+ # ── LAMBDAS:  COMPROBANTES SIIGO ────────────────────────────────────────────────
+
+
+  ListarComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-listar-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Lista todas las retenciones activas
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones
+              Method: GET
+
+    ListarComprobanteSiigoByIdFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-listar-comprobante-siigo-id-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo-id/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds: 
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Obtiene una retención por ID
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones/{id}
+              Method: GET
+
+    CrearComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-crear-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/crear-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Crea una nueva retención tributaria
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones
+              Method: POST
+
+    ActualizarComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-actualizar-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/actualizar-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Actualiza una retención existente
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones/{id}
+              Method: PUT
+
+    EliminarComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-eliminar-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/eliminar-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Elimina lógicamente una retención (soft delete)
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones/{id}
+              Method: DELETE
+
+
   # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
 
   CrearRedistribucionFunction:
