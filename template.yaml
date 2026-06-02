@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: "2010-09-09"
+AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: FormalizeSEHub - Infraestructura consolidada
 
@@ -27,23 +27,23 @@ Parameters:
 
   UseVpc:
     Type: String
-    Default: "false"
-    AllowedValues: ["true", "false"]
+    Default: 'false'
+    AllowedValues: ['true', 'false']
     Description: Si es true, las Lambdas se despliegan dentro de la VPC (requiere VpcId, Subnet1Id, Subnet2Id)
 
   VpcId:
     Type: String
-    Default: ""
+    Default: ''
     Description: ID de la VPC existente (requerido si UseVpc=true)
 
   Subnet1Id:
     Type: String
-    Default: ""
+    Default: ''
     Description: Subnet privada 1 (AZ-a) (requerido si UseVpc=true)
 
   Subnet2Id:
     Type: String
-    Default: ""
+    Default: ''
     Description: Subnet privada 2 (AZ-b) (requerido si UseVpc=true)
 
   JwtSecret:
@@ -54,7 +54,7 @@ Parameters:
 
   SystemOrgId:
     Type: String
-    Default: "00000000-0000-0000-0000-000000000001"
+    Default: '00000000-0000-0000-0000-000000000001'
     Description: UUID de la organización sistema reservada para el superadmin
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -88,12 +88,13 @@ Globals:
 # ─────────────────────────────────────────────────────────────────────────────
 Conditions:
   IsProd: !Equals [!Ref Environment, prod]
-  UseVpcCondition: !Equals [!Ref UseVpc, "true"]
+  UseVpcCondition: !Equals [!Ref UseVpc, 'true']
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RECURSOS
 # ─────────────────────────────────────────────────────────────────────────────
 Resources:
+
   # ── NETWORKING ──────────────────────────────────────────────────────────────
   # Solo se crean si UseVpc=true
 
@@ -139,9 +140,9 @@ Resources:
       DBInstanceIdentifier: !Sub formalizese-db-${Environment}
       DBName: !Ref DatabaseName
       Engine: postgres
-      EngineVersion: "15.17"
+      EngineVersion: '15.17'
       DBInstanceClass: !If [IsProd, db.t3.small, db.t3.micro]
-      AllocatedStorage: "20"
+      AllocatedStorage: '20'
       StorageType: gp3
       MasterUsername: !Ref DatabaseUser
       MasterUserPassword: !Ref DatabasePassword
@@ -187,13 +188,13 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-dlq-${Environment}
-      MessageRetentionPeriod: 1209600 # 14 días
+      MessageRetentionPeriod: 1209600  # 14 días
 
   InvoiceProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-${Environment}
-      VisibilityTimeout: 360 # 6 min — debe ser >= timeout de la Lambda consumidora
+      VisibilityTimeout: 360          # 6 min — debe ser >= timeout de la Lambda consumidora
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -204,13 +205,13 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-dian-processing-dlq-${Environment}
-      MessageRetentionPeriod: 1209600 # 14 días
+      MessageRetentionPeriod: 1209600  # 14 días
 
   DianProcessingQueue:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-dian-processing-${Environment}
-      VisibilityTimeout: 360 # 6 min — >= timeout de DianProcessingFunction
+      VisibilityTimeout: 360          # 6 min — >= timeout de DianProcessingFunction
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -226,7 +227,7 @@ Resources:
     Properties:
       RoleName: !Sub formalizese-lambda-role-${Environment}
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
@@ -237,7 +238,7 @@ Resources:
       Policies:
         - PolicyName: FormalizeSEHubPolicy
           PolicyDocument:
-            Version: "2012-10-17"
+            Version: '2012-10-17'
             Statement:
               - Effect: Allow
                 Action:
@@ -284,9 +285,9 @@ Resources:
       StageName: !Ref Environment
       Description: API Gateway con CORS habilitado
       BinaryMediaTypes:
-        - "application/octet-stream"
-        - "multipart/form-data"
-        - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        - 'application/octet-stream'
+        - 'multipart/form-data'
+        - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       Cors:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
@@ -1021,147 +1022,151 @@ Resources:
             Path: /retenciones/{id}
             Method: DELETE
 
-  # ── LAMBDAS:  COMPROBANTES SIIGO ────────────────────────────────────────────────
+
+ # ── LAMBDAS:  COMPROBANTES SIIGO ────────────────────────────────────────────────
+
 
   ListarComprobanteSiigoFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-listar-comprobante-siigo-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo/dist.zip
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Lista todas las retenciones activas
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones
-            Method: GET
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-listar-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Lista todas las retenciones activas
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones
+              Method: GET
 
-  ListarComprobanteSiigoByIdFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-listar-comprobante-siigo-id-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo-id/dist.zip
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Obtiene una retención por ID
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
-            Method: GET
+    ListarComprobanteSiigoByIdFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-listar-comprobante-siigo-id-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo-id/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds: 
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Obtiene una retención por ID
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones/{id}
+              Method: GET
 
-  CrearComprobanteSiigoFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-crear-comprobante-siigo-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/crear-comprobante-siigo/dist.zip
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Crea una nueva retención tributaria
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones
-            Method: POST
+    CrearComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-crear-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/crear-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Crea una nueva retención tributaria
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones
+              Method: POST
 
-  ActualizarComprobanteSiigoFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-actualizar-comprobante-siigo-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/actualizar-comprobante-siigo/dist.zip
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Actualiza una retención existente
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
-            Method: PUT
+    ActualizarComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-actualizar-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/actualizar-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Actualiza una retención existente
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones/{id}
+              Method: PUT
 
-  EliminarComprobanteSiigoFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-eliminar-comprobante-siigo-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/eliminar-comprobante-siigo/dist.zip
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Elimina lógicamente una retención (soft delete)
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
-            Method: DELETE
+    EliminarComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-eliminar-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/eliminar-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Elimina lógicamente una retención (soft delete)
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones/{id}
+              Method: DELETE
 
-  # ── LAMBDAS:  CODIGOS IMPUESTOS ────────────────────────────────────────────────
+
+# ── LAMBDAS:  CODIGOS IMPUESTOS ────────────────────────────────────────────────
+
 
   ListarCodigosImpuestosFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-listar-codigo-impuestos-${Environment}
-      CodeUri: ../formalizesehub-codigos-impuestos/services/listar-codigo-impuestos/dist.zip
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Lista todas las retenciones activas
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones
-            Method: GET
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-listar-codigo-impuestos-${Environment}
+        CodeUri: ../formalizesehub-codigos-impuestos/services/listar-codigo-impuestos/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Lista todas las retenciones activas
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /retenciones
+              Method: GET
 
   ListarCodigosImpuestosByIdFunction:
     Type: AWS::Serverless::Function
@@ -1173,7 +1178,7 @@ Resources:
         - UseVpcCondition
         - SecurityGroupIds:
             - !Ref LambdaSecurityGroup
-          SubnetIds:
+          SubnetIds: 
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
@@ -1254,6 +1259,7 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /retenciones/{id}
             Method: DELETE
+
 
   # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
 
@@ -1419,6 +1425,7 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/excel-tns
             Method: GET
+  
 
   GenerarExcelSiigoRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1538,9 +1545,9 @@ Resources:
             FunctionResponseTypes:
               - ReportBatchItemFailures
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # LAMBDAS: AUTENTICACIÓN Y USUARIOS
-  # ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# LAMBDAS: AUTENTICACIÓN Y USUARIOS
+# ─────────────────────────────────────────────────────────────────────────────
 
   LoginFunction:
     Type: AWS::Serverless::Function
