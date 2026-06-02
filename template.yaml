@@ -1168,97 +1168,97 @@ Resources:
               Path: /retenciones
               Method: GET
 
-    ListarCodigosImpuestosByIdFunction:
-      Type: AWS::Serverless::Function
-      Properties:
-        FunctionName: !Sub formalizese-listar-codigo-impuestos-id-${Environment}
-        CodeUri: ../formalizesehub-codigos-impuestos/services/listar-codigo-impuestos-id/dist.zip
-        Role: !GetAtt LambdaExecutionRole.Arn
-        VpcConfig: !If
-          - UseVpcCondition
-          - SecurityGroupIds:
-              - !Ref LambdaSecurityGroup
-            SubnetIds: 
-              - !Ref Subnet1Id
-              - !Ref Subnet2Id
-          - !Ref AWS::NoValue
-        Description: Obtiene una retención por ID
-        Events:
-          Api:
-            Type: Api
-            Properties:
-              RestApiId: !Ref FormalizeSEApi
-              Path: /retenciones/{id}
-              Method: GET
+  ListarCodigosImpuestosByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-codigo-impuestos-id-${Environment}
+      CodeUri: ../formalizesehub-codigos-impuestos/services/listar-codigo-impuestos-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds: 
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Obtiene una retención por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones/{id}
+            Method: GET
 
-    CrearCodigosImpuestosFunction:
-      Type: AWS::Serverless::Function
-      Properties:
-        FunctionName: !Sub formalizese-crear-codigo-impuestos-${Environment}
-        CodeUri: ../formalizesehub-codigos-impuestos/services/crear-codigo-impuestos/dist.zip
-        Role: !GetAtt LambdaExecutionRole.Arn
-        VpcConfig: !If
-          - UseVpcCondition
-          - SecurityGroupIds:
-              - !Ref LambdaSecurityGroup
-            SubnetIds:
-              - !Ref Subnet1Id
-              - !Ref Subnet2Id
-          - !Ref AWS::NoValue
-        Description: Crea una nueva retención tributaria
-        Events:
-          Api:
-            Type: Api
-            Properties:
-              RestApiId: !Ref FormalizeSEApi
-              Path: /retenciones
-              Method: POST
+  CrearCodigosImpuestosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-codigo-impuestos-${Environment}
+      CodeUri: ../formalizesehub-codigos-impuestos/services/crear-codigo-impuestos/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea una nueva retención tributaria
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones
+            Method: POST
 
-    ActualizarCodigosImpuestosFunction:
-      Type: AWS::Serverless::Function
-      Properties:
-        FunctionName: !Sub formalizese-actualizar-codigo-impuestos-${Environment}
-        CodeUri: ../formalizesehub-codigos-impuestos/services/actualizar-codigo-impuestos/dist.zip
-        Role: !GetAtt LambdaExecutionRole.Arn
-        VpcConfig: !If
-          - UseVpcCondition
-          - SecurityGroupIds:
-              - !Ref LambdaSecurityGroup
-            SubnetIds:
-              - !Ref Subnet1Id
-              - !Ref Subnet2Id
-          - !Ref AWS::NoValue
-        Description: Actualiza una retención existente
-        Events:
-          Api:
-            Type: Api
-            Properties:
-              RestApiId: !Ref FormalizeSEApi
-              Path: /retenciones/{id}
-              Method: PUT
+  ActualizarCodigosImpuestosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-codigo-impuestos-${Environment}
+      CodeUri: ../formalizesehub-codigos-impuestos/services/actualizar-codigo-impuestos/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza una retención existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones/{id}
+            Method: PUT
 
-    EliminarCodigosImpuestosFunction:
-      Type: AWS::Serverless::Function
-      Properties:
-        FunctionName: !Sub formalizese-eliminar-codigo-impuestos-${Environment}
-        CodeUri: ../formalizesehub-codigos-impuestos/services/eliminar-codigo-impuestos/dist.zip
-        Role: !GetAtt LambdaExecutionRole.Arn
-        VpcConfig: !If
-          - UseVpcCondition
-          - SecurityGroupIds:
-              - !Ref LambdaSecurityGroup
-            SubnetIds:
-              - !Ref Subnet1Id
-              - !Ref Subnet2Id
-          - !Ref AWS::NoValue
-        Description: Elimina lógicamente una retención (soft delete)
-        Events:
-          Api:
-            Type: Api
-            Properties:
-              RestApiId: !Ref FormalizeSEApi
-              Path: /retenciones/{id}
-              Method: DELETE
+  EliminarCodigosImpuestosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-codigo-impuestos-${Environment}
+      CodeUri: ../formalizesehub-codigos-impuestos/services/eliminar-codigo-impuestos/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Elimina lógicamente una retención (soft delete)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones/{id}
+            Method: DELETE
 
 
   # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
