@@ -38,6 +38,8 @@ WORKSPACE_REPOS=(
     "formalizesehub-retenciones"
     "formalizesehub-descargas"
     "formalizesehub-redistribuciones"
+    "formalizesehub-codigo-impuestos"
+    "formalizesehub-comprobante-siigo"
 )
 
 # ── Repos con build propio ────────────────────────────

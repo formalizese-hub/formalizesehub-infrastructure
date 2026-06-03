@@ -68,7 +68,7 @@ Globals:
       AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
       AllowOrigin: "'*'"
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Timeout: 30
     MemorySize: 512
     Handler: index.handler
@@ -1040,13 +1040,13 @@ Resources:
               - !Ref Subnet1Id
               - !Ref Subnet2Id
           - !Ref AWS::NoValue
-        Description: Lista todas las retenciones activas
+        Description: Lista todos los comprobantes Siigo activos
         Events:
           Api:
             Type: Api
             Properties:
               RestApiId: !Ref FormalizeSEApi
-              Path: /retenciones
+              Path: /comprobantes-siigo
               Method: GET
 
   ListarComprobanteSiigoByIdFunction:
@@ -1063,13 +1063,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Obtiene una retención por ID
+      Description: Obtiene un comprobante Siigo por ID
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
+            Path: /comprobantes-siigo/{id}
             Method: GET
 
   CrearComprobanteSiigoFunction:
@@ -1086,13 +1086,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Crea una nueva retención tributaria
+      Description: Crea un nuevo comprobante Siigo
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones
+            Path: /comprobantes-siigo
             Method: POST
 
   ActualizarComprobanteSiigoFunction:
@@ -1109,13 +1109,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Actualiza una retención existente
+      Description: Actualiza un comprobante Siigo existente
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
+            Path: /comprobantes-siigo/{id}
             Method: PUT
 
   EliminarComprobanteSiigoFunction:
@@ -1132,13 +1132,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Elimina lógicamente una retención (soft delete)
+      Description: Elimina lógicamente un comprobante Siigo (soft delete)
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
+            Path: /comprobantes-siigo/{id}
             Method: DELETE
 
 
@@ -1149,7 +1149,7 @@ Resources:
       Type: AWS::Serverless::Function
       Properties:
         FunctionName: !Sub formalizese-listar-codigo-impuestos-${Environment}
-        CodeUri: ../formalizesehub-codigos-impuestos/services/listar-codigo-impuestos/dist.zip
+        CodeUri: ../formalizesehub-codigo-impuestos/services/listar-codigo-impuestos/dist.zip
         Role: !GetAtt LambdaExecutionRole.Arn
         VpcConfig: !If
           - UseVpcCondition
@@ -1159,20 +1159,20 @@ Resources:
               - !Ref Subnet1Id
               - !Ref Subnet2Id
           - !Ref AWS::NoValue
-        Description: Lista todas las retenciones activas
+        Description: Lista todos los códigos de impuestos activos
         Events:
           Api:
             Type: Api
             Properties:
               RestApiId: !Ref FormalizeSEApi
-              Path: /retenciones
+              Path: /codigos-impuestos
               Method: GET
 
   ListarCodigosImpuestosByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-codigo-impuestos-id-${Environment}
-      CodeUri: ../formalizesehub-codigos-impuestos/services/listar-codigo-impuestos-id/dist.zip
+      CodeUri: ../formalizesehub-codigo-impuestos/services/listar-codigo-impuestos-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1182,20 +1182,20 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Obtiene una retención por ID
+      Description: Obtiene un código de impuesto por ID
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
+            Path: /codigos-impuestos/{id}
             Method: GET
 
   CrearCodigosImpuestosFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-codigo-impuestos-${Environment}
-      CodeUri: ../formalizesehub-codigos-impuestos/services/crear-codigo-impuestos/dist.zip
+      CodeUri: ../formalizesehub-codigo-impuestos/services/crear-codigo-impuestos/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1205,20 +1205,20 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Crea una nueva retención tributaria
+      Description: Crea un nuevo código de impuesto
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones
+            Path: /codigos-impuestos
             Method: POST
 
   ActualizarCodigosImpuestosFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-codigo-impuestos-${Environment}
-      CodeUri: ../formalizesehub-codigos-impuestos/services/actualizar-codigo-impuestos/dist.zip
+      CodeUri: ../formalizesehub-codigo-impuestos/services/actualizar-codigo-impuestos/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1228,20 +1228,20 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Actualiza una retención existente
+      Description: Actualiza un código de impuesto existente
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
+            Path: /codigos-impuestos/{id}
             Method: PUT
 
   EliminarCodigosImpuestosFunction:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-codigo-impuestos-${Environment}
-      CodeUri: ../formalizesehub-codigos-impuestos/services/eliminar-codigo-impuestos/dist.zip
+      CodeUri: ../formalizesehub-codigo-impuestos/services/eliminar-codigo-impuestos/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1251,13 +1251,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Elimina lógicamente una retención (soft delete)
+      Description: Elimina lógicamente un código de impuesto (soft delete)
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /retenciones/{id}
+            Path: /codigos-impuestos/{id}
             Method: DELETE
 
 
