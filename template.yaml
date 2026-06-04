@@ -1452,6 +1452,128 @@ Resources:
             Path: /redistribuciones/excel-siigo
             Method: GET
 
+  PrecalculoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-precalculo-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/precalculo-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Calcula preview de redistribución (filas, retenciones, consecutivo) sin persistir
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /precalculo-redistribucion
+            Method: POST
+
+  ListarFacturasRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-facturas-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/listar-facturas-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista todas las facturas de descargas completadas del cliente en un solo request
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /facturas-redistribucion
+            Method: GET
+
+  GrupoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-grupo-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Evalúa retención grupal (proveedor+fecha) y persiste resultado en facturas
+      Timeout: 30
+      Events:
+        ValidarGrupo:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /grupo-redistribucion
+            Method: POST
+
+  ConsecutivoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-consecutivo-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      Handler: index.consecutivoHandler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Retorna el próximo consecutivo de comprobante por tipo y prefijo
+      Timeout: 10
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /grupo-redistribucion/consecutivo
+            Method: GET
+
+  AutoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auto-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/auto-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Procesa lote de facturas - calcula y guarda redistribuciones automáticamente
+      Timeout: 120
+      MemorySize: 1024
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /auto-redistribucion
+            Method: POST
+
   # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
   # Flujo completo:
   #   POST /dian/download
