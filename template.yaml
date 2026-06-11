@@ -194,7 +194,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-${Environment}
-      VisibilityTimeout: 360          # 6 min — debe ser >= timeout de la Lambda consumidora
+      VisibilityTimeout: 900          # 6 min — debe ser >= timeout de la Lambda consumidora
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -1491,6 +1491,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Lista todas las facturas de descargas completadas del cliente en un solo request
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
       Timeout: 30
       Events:
         Api:
@@ -1646,7 +1649,7 @@ Resources:
       FunctionName: !Sub formalizese-invoice-processing-${Environment}
       CodeUri: ../formalizesehub-invoice-processing/dist/
       Runtime: nodejs22.x
-      Timeout: 300
+      Timeout: 900
       MemorySize: 1024
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
