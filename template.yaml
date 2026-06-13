@@ -218,6 +218,23 @@ Resources:
         deadLetterTargetArn: !GetAtt DianProcessingDLQ.Arn
         maxReceiveCount: 3
 
+  RedistribucionProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-processing-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  RedistribucionProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-processing-${Environment}
+      VisibilityTimeout: 900           # 15 min — >= timeout de AutoRedistribucionFunction
+      MessageRetentionPeriod: 345600   # 4 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RedistribucionProcessingDLQ.Arn
+        maxReceiveCount: 3
+
   # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
   # Permisos mínimos necesarios. Para agregar permisos a una Lambda específica,
   # usar la propiedad Policies directamente en el recurso AWS::Serverless::Function
@@ -266,6 +283,16 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt DianProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt RedistribucionProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt RedistribucionProcessingQueue.Arn
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
@@ -729,6 +756,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Crea una cuenta para un proveedor
+      Environment:
+        Variables:
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         Api:
           Type: Api
@@ -752,6 +782,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Actualiza una cuenta de proveedor
+      Environment:
+        Variables:
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         Api:
           Type: Api
@@ -1566,16 +1599,40 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Procesa lote de facturas - calcula y guarda redistribuciones automáticamente
+      Description: Procesa lote de facturas - calcula y guarda redistribuciones automáticamente (trigger SQS)
       Timeout: 120
       MemorySize: 1024
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RedistribucionProcessingQueue.Arn
+            BatchSize: 1
+            BatchSize: 1
+
+  DetectarConsecutivoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-detectar-consecutivo-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/detectar-consecutivo/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Detecta configuración de consecutivo y agrupa redistribuciones por tipo de cliente (TNS/Siigo)
+      Timeout: 30
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /auto-redistribucion
-            Method: POST
+            Path: /redistribuciones/detectar-consecutivo
+            Method: GET
 
   # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
   # Flujo completo:
@@ -1650,7 +1707,7 @@ Resources:
       CodeUri: ../formalizesehub-invoice-processing/dist/
       Runtime: nodejs22.x
       Timeout: 900
-      MemorySize: 1024
+      MemorySize: 2048
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
       # Sin VPC — necesita salida a internet para descargar XMLs de la DIAN
@@ -1661,6 +1718,7 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref InvoicesBucket
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         SQSTrigger:
           Type: SQS
@@ -1977,3 +2035,15 @@ Outputs:
     Value: !Ref InvoiceProcessingQueue
     Export:
       Name: !Sub FormalizeSEHub-InvoiceProcessingQueue-${Environment}
+
+  RedistribucionProcessingQueueUrl:
+    Description: URL de la cola SQS de redistribución automática
+    Value: !Ref RedistribucionProcessingQueue
+    Export:
+      Name: !Sub FormalizeSEHub-RedistribucionProcessingQueueUrl-${Environment}
+
+  RedistribucionProcessingQueueArn:
+    Description: ARN de la cola SQS de redistribución automática
+    Value: !GetAtt RedistribucionProcessingQueue.Arn
+    Export:
+      Name: !Sub FormalizeSEHub-RedistribucionProcessingQueueArn-${Environment}
