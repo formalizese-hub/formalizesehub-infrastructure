@@ -49,7 +49,19 @@ STANDALONE_REPOS=(
     "formalizesehub-dian-download-proxy"
 )
 
-echo "🔨 Building lambdas..."
+echo "� Instalando dependencias..."
+echo ""
+
+for repo in "${WORKSPACE_REPOS[@]}" "${STANDALONE_REPOS[@]}"; do
+    REPO_PATH="$ROOT_DIR/$repo"
+    if [ -d "$REPO_PATH" ]; then
+        echo "  → $repo"
+        (cd "$REPO_PATH" && npm ci --silent 2>&1) || { echo "  ❌ npm ci falló en $repo"; exit 1; }
+    fi
+done
+
+echo ""
+echo "�🔨 Building lambdas..."
 echo ""
 
 for repo in "${WORKSPACE_REPOS[@]}"; do
