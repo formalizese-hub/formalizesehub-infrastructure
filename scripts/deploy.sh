@@ -137,6 +137,7 @@ for repo in "${!LARGE_LAMBDAS[@]}"; do
         || { echo "  ❌ Lambda update falló para $LAMBDA_NAME"; exit 1; }
 
     echo "    ✅ $LAMBDA_NAME actualizada"
+    rm -f "$ZIP_FILE"
 done
 
 echo ""
