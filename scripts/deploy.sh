@@ -110,6 +110,18 @@ for repo in "${!LARGE_LAMBDAS[@]}"; do
     fi
 
     S3_KEY="deploy/${repo}.zip"
+
+    # Comparar hash local vs S3 para detectar cambios
+    LOCAL_HASH=$(md5 -q "$ZIP_FILE" 2>/dev/null || md5sum "$ZIP_FILE" | awk '{print $1}')
+    REMOTE_ETAG=$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$S3_KEY" \
+        --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+        --query 'ETag' --output text 2>/dev/null | tr -d '"')
+
+    if [ "$LOCAL_HASH" = "$REMOTE_ETAG" ]; then
+        echo "  → $repo: sin cambios, saltando"
+        continue
+    fi
+
     echo "  → $repo → s3://$DEPLOY_BUCKET/$S3_KEY"
     aws s3 cp "$ZIP_FILE" "s3://$DEPLOY_BUCKET/$S3_KEY" \
         --profile "$AWS_PROFILE" --region "$AWS_REGION" 2>&1 \
