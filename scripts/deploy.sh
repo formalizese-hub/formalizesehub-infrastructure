@@ -89,19 +89,24 @@ AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
 AWS_REGION="${AWS_REGION:-sa-east-1}"
 DEPLOY_BUCKET="formalizese-invoices-${ENV}-152406482061"
 
-# Mapa: directorio-repo → nombre-lambda
-declare -A LARGE_LAMBDAS=(
-    ["formalizesehub-dian-download"]="formalizese-dian-processing-${ENV}"
-    ["formalizesehub-invoice-processing"]="formalizese-invoice-processing-${ENV}"
+# Mapa: directorio-repo → nombre-lambda (arrays paralelos para compatibilidad bash 3.x)
+LARGE_LAMBDA_REPOS=(
+    "formalizesehub-dian-download"
+    "formalizesehub-invoice-processing"
+)
+LARGE_LAMBDA_NAMES=(
+    "formalizese-dian-processing-${ENV}"
+    "formalizese-invoice-processing-${ENV}"
 )
 
 echo ""
 echo "☁️  Actualizando lambdas grandes via S3..."
 echo ""
 
-for repo in "${!LARGE_LAMBDAS[@]}"; do
+for i in $(seq 0 $((${#LARGE_LAMBDA_REPOS[@]} - 1))); do
+    repo="${LARGE_LAMBDA_REPOS[$i]}"
+    LAMBDA_NAME="${LARGE_LAMBDA_NAMES[$i]}"
     REPO_PATH="$ROOT_DIR/$repo"
-    LAMBDA_NAME="${LARGE_LAMBDAS[$repo]}"
     ZIP_FILE="$REPO_PATH/dist.zip"
 
     if [ ! -f "$ZIP_FILE" ]; then
