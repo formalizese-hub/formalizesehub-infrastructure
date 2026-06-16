@@ -92,6 +92,7 @@ DEPLOY_BUCKET="formalizese-invoices-${ENV}-152406482061"
 # Mapa: directorio-repo → nombre-lambda
 declare -A LARGE_LAMBDAS=(
     ["formalizesehub-dian-download"]="formalizese-dian-processing-${ENV}"
+    ["formalizesehub-invoice-processing"]="formalizese-invoice-processing-${ENV}"
 )
 
 echo ""
