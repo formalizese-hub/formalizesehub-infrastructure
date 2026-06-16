@@ -84,6 +84,48 @@ for repo in "${STANDALONE_REPOS[@]}"; do
     fi
 done
 
+# ── Lambdas grandes (>50MB) → deploy via S3 ──────────
+AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
+AWS_REGION="${AWS_REGION:-sa-east-1}"
+DEPLOY_BUCKET="formalizese-invoices-${ENV}-152406482061"
+
+# Mapa: directorio-repo → nombre-lambda
+declare -A LARGE_LAMBDAS=(
+    ["formalizesehub-dian-download"]="formalizese-dian-processing-${ENV}"
+)
+
+echo ""
+echo "☁️  Actualizando lambdas grandes via S3..."
+echo ""
+
+for repo in "${!LARGE_LAMBDAS[@]}"; do
+    REPO_PATH="$ROOT_DIR/$repo"
+    LAMBDA_NAME="${LARGE_LAMBDAS[$repo]}"
+    ZIP_FILE="$REPO_PATH/dist.zip"
+
+    if [ ! -f "$ZIP_FILE" ]; then
+        echo "  ⚠️  $repo: dist.zip no encontrado, saltando"
+        continue
+    fi
+
+    S3_KEY="deploy/${repo}.zip"
+    echo "  → $repo → s3://$DEPLOY_BUCKET/$S3_KEY"
+    aws s3 cp "$ZIP_FILE" "s3://$DEPLOY_BUCKET/$S3_KEY" \
+        --profile "$AWS_PROFILE" --region "$AWS_REGION" 2>&1 \
+        || { echo "  ❌ S3 upload falló para $repo"; exit 1; }
+
+    echo "    Actualizando $LAMBDA_NAME..."
+    aws lambda update-function-code \
+        --function-name "$LAMBDA_NAME" \
+        --s3-bucket "$DEPLOY_BUCKET" \
+        --s3-key "$S3_KEY" \
+        --profile "$AWS_PROFILE" \
+        --region "$AWS_REGION" > /dev/null 2>&1 \
+        || { echo "  ❌ Lambda update falló para $LAMBDA_NAME"; exit 1; }
+
+    echo "    ✅ $LAMBDA_NAME actualizada"
+done
+
 echo ""
 echo "📦 SAM build..."
 sam build \
