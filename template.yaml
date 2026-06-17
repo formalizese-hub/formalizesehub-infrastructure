@@ -1427,12 +1427,18 @@ Resources:
         - !Ref AWS::NoValue
       Description: Genera la estructura base del archivo plano TXT compatible con TNS
       Events:
-        Api:
+        ApiGet:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/txt
             Method: GET
+        ApiPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/txt
+            Method: POST
 
   GenerarExcelTnsRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1452,13 +1458,18 @@ Resources:
       Timeout: 60
       MemorySize: 512
       Events:
-        Api:
+        ApiGet:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/excel-tns
             Method: GET
-  
+        ApiPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/excel-tns
+            Method: POST
 
   GenerarExcelSiigoRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1478,12 +1489,18 @@ Resources:
       Timeout: 60
       MemorySize: 512
       Events:
-        Api:
+        ApiGet:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/excel-siigo
             Method: GET
+        ApiPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/excel-siigo
+            Method: POST
 
   PrecalculoRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1675,9 +1692,9 @@ Resources:
       CodeUri: ../formalizesehub-dian-download/dist/
       Runtime: nodejs22.x
       Timeout: 300
-      MemorySize: 1024
+      MemorySize: 1600
       Role: !GetAtt LambdaExecutionRole.Arn
-      Description: Consume SQS, hace scraping DIAN, sube ZIP a S3
+      Description: Consume SQS, hace scraping DIAN con Puppeteer, sube ZIP a S3
       # Sin VPC — necesita salida a internet para scraping en catalogo-vpfe.dian.gov.co
       VpcConfig:
         SecurityGroupIds: []
