@@ -25,17 +25,37 @@ Parameters:
     NoEcho: true
     MinLength: 8
 
+  UseVpc:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Si es true, las Lambdas se despliegan dentro de la VPC (requiere VpcId, Subnet1Id, Subnet2Id)
+
   VpcId:
     Type: String
-    Description: ID de la VPC existente
+    Default: ''
+    Description: ID de la VPC existente (requerido si UseVpc=true)
 
   Subnet1Id:
     Type: String
-    Description: Subnet privada 1 (AZ-a)
+    Default: ''
+    Description: Subnet privada 1 (AZ-a) (requerido si UseVpc=true)
 
   Subnet2Id:
     Type: String
-    Description: Subnet privada 2 (AZ-b)
+    Default: ''
+    Description: Subnet privada 2 (AZ-b) (requerido si UseVpc=true)
+
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    Description: Clave secreta para firmar JWT (mínimo 32 caracteres)
+
+  SystemOrgId:
+    Type: String
+    Default: '00000000-0000-0000-0000-000000000001'
+    Description: UUID de la organización sistema reservada para el superadmin
 
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBALS — aplican a todas las funciones Lambda salvo override explícito
@@ -44,20 +64,14 @@ Parameters:
 Globals:
   Api:
     Cors:
-      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type,Authorization'"
+      AllowMethods: "'GET,POST,PUT, PATCH,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
       AllowOrigin: "'*'"
   Function:
-    Runtime: nodejs20.x
+    Runtime: nodejs22.x
     Timeout: 30
     MemorySize: 512
     Handler: index.handler
-    VpcConfig:
-      SecurityGroupIds:
-        - !Ref LambdaSecurityGroup
-      SubnetIds:
-        - !Ref Subnet1Id
-        - !Ref Subnet2Id
     Environment:
       Variables:
         DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
@@ -66,12 +80,15 @@ Globals:
         DB_USER: !Ref DatabaseUser
         DB_PASSWORD: !Ref DatabasePassword
         ENVIRONMENT: !Ref Environment
+        JWT_SECRET: !Ref JwtSecret
+        SYSTEM_ORG_ID: !Ref SystemOrgId
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONDICIONES
 # ─────────────────────────────────────────────────────────────────────────────
 Conditions:
   IsProd: !Equals [!Ref Environment, prod]
+  UseVpcCondition: !Equals [!Ref UseVpc, 'true']
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RECURSOS
@@ -79,9 +96,11 @@ Conditions:
 Resources:
 
   # ── NETWORKING ──────────────────────────────────────────────────────────────
+  # Solo se crean si UseVpc=true
 
   LambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Condition: UseVpcCondition
     Properties:
       GroupDescription: Security group para Lambdas FormalizeSEHub
       VpcId: !Ref VpcId
@@ -91,6 +110,7 @@ Resources:
 
   RDSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
+    Condition: UseVpcCondition
     Properties:
       GroupDescription: Security group para RDS PostgreSQL
       VpcId: !Ref VpcId
@@ -105,6 +125,7 @@ Resources:
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
+    Condition: UseVpcCondition
     Properties:
       DBSubnetGroupDescription: Subnet group para RDS FormalizeSEHub
       SubnetIds:
@@ -125,9 +146,14 @@ Resources:
       StorageType: gp3
       MasterUsername: !Ref DatabaseUser
       MasterUserPassword: !Ref DatabasePassword
-      VPCSecurityGroups:
-        - !Ref RDSSecurityGroup
-      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups: !If
+        - UseVpcCondition
+        - - !Ref RDSSecurityGroup
+        - !Ref AWS::NoValue
+      DBSubnetGroupName: !If
+        - UseVpcCondition
+        - !Ref DBSubnetGroup
+        - !Ref AWS::NoValue
       PubliclyAccessible: !If [IsProd, false, true]
       BackupRetentionPeriod: !If [IsProd, 7, 1]
       DeletionProtection: !If [IsProd, true, false]
@@ -168,7 +194,7 @@ Resources:
     Type: AWS::SQS::Queue
     Properties:
       QueueName: !Sub formalizese-invoice-processing-${Environment}
-      VisibilityTimeout: 360          # 6 min — debe ser >= timeout de la Lambda consumidora
+      VisibilityTimeout: 900          # 6 min — debe ser >= timeout de la Lambda consumidora
       MessageRetentionPeriod: 1209600 # 14 días
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
@@ -190,6 +216,23 @@ Resources:
       ReceiveMessageWaitTimeSeconds: 20
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt DianProcessingDLQ.Arn
+        maxReceiveCount: 3
+
+  RedistribucionProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-processing-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  RedistribucionProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-processing-${Environment}
+      VisibilityTimeout: 900           # 15 min — >= timeout de AutoRedistribucionFunction
+      MessageRetentionPeriod: 345600   # 4 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RedistribucionProcessingDLQ.Arn
         maxReceiveCount: 3
 
   # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
@@ -242,6 +285,16 @@ Resources:
                 Resource: !GetAtt DianProcessingQueue.Arn
               - Effect: Allow
                 Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt RedistribucionProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt RedistribucionProcessingQueue.Arn
+              - Effect: Allow
+                Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
@@ -261,23 +314,24 @@ Resources:
       BinaryMediaTypes:
         - 'application/octet-stream'
         - 'multipart/form-data'
+        - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       Cors:
-        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization'"
+        AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
         AllowOrigin: "'*'"
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization'"
-              Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
+              Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
 
   # ── LAMBDAS: CLIENTES ────────────────────────────────────────────────────────
   # Para agregar un nuevo endpoint de clientes:
@@ -292,6 +346,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-clientes-${Environment}
       CodeUri: ../formalizesehub-cliente/services/listar-clientes/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista todos los clientes activos
       Events:
         Api:
@@ -307,6 +369,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-clientes-id-${Environment}
       CodeUri: ../formalizesehub-cliente/services/listar-clientes-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Obtiene un cliente por ID
       Events:
         Api:
@@ -322,6 +392,14 @@ Resources:
       FunctionName: !Sub formalizese-crear-cliente-${Environment}
       CodeUri: ../formalizesehub-cliente/services/crear-cliente/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Crea un nuevo cliente
       Events:
         Api:
@@ -337,6 +415,14 @@ Resources:
       FunctionName: !Sub formalizese-actualizar-cliente-${Environment}
       CodeUri: ../formalizesehub-cliente/services/actualizar-cliente/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Actualiza un cliente existente
       Events:
         Api:
@@ -352,6 +438,14 @@ Resources:
       FunctionName: !Sub formalizese-eliminar-cliente-${Environment}
       CodeUri: ../formalizesehub-cliente/services/eliminar-cliente/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Elimina lógicamente un cliente
       Events:
         Api:
@@ -369,6 +463,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-descargas-${Environment}
       CodeUri: ../formalizesehub-descargas/services/listar-descargas/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista descargas por cliente
       Events:
         Api:
@@ -384,7 +486,18 @@ Resources:
       FunctionName: !Sub formalizese-detalle-descarga-${Environment}
       CodeUri: ../formalizesehub-descargas/services/listar-descargas/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Detalle de una descarga con facturas y proveedores
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
       Events:
         Api:
           Type: Api
@@ -399,6 +512,14 @@ Resources:
       FunctionName: !Sub formalizese-detalle-factura-${Environment}
       CodeUri: ../formalizesehub-descargas/services/detalle-factura/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Detalle de una factura con productos e impuestos
       Events:
         Api:
@@ -411,9 +532,17 @@ Resources:
   ActualizarGrupoRetencionFacturaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura
+      FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura-${Environment}
       CodeUri: ../formalizesehub-descargas/services/actualizar-grupo-retencion-factura/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Actualiza datos de pre-validacion de grupo de retencion en una factura
       Events:
         Api:
@@ -431,6 +560,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-cuentas-contables-${Environment}
       CodeUri: ../formalizesehub-cuentas-contables/services/listar-cuentas-contables/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista todas las cuentas contables activas
       Events:
         Api:
@@ -446,6 +583,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-cuentas-contables-id-${Environment}
       CodeUri: ../formalizesehub-cuentas-contables/services/listar-cuentas-contables-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Obtiene una cuenta contable por ID
       Events:
         Api:
@@ -461,6 +606,14 @@ Resources:
       FunctionName: !Sub formalizese-crear-cuenta-contable-${Environment}
       CodeUri: ../formalizesehub-cuentas-contables/services/crear-cuenta-contable/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Crea una nueva cuenta contable
       Events:
         Api:
@@ -476,6 +629,14 @@ Resources:
       FunctionName: !Sub formalizese-actualizar-cuenta-contable-${Environment}
       CodeUri: ../formalizesehub-cuentas-contables/services/actualizar-cuenta-contable/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Actualiza una cuenta contable existente
       Events:
         Api:
@@ -491,6 +652,14 @@ Resources:
       FunctionName: !Sub formalizese-eliminar-cuenta-contable-${Environment}
       CodeUri: ../formalizesehub-cuentas-contables/services/eliminar-cuenta-contable/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Elimina lógicamente una cuenta contable
       Events:
         Api:
@@ -506,6 +675,14 @@ Resources:
       FunctionName: !Sub formalizese-cargar-masiva-cuentas-${Environment}
       CodeUri: ../formalizesehub-cuentas-contables/services/cargar-masiva/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Carga masiva de cuentas contables desde Excel
       Timeout: 60
       Events:
@@ -524,6 +701,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-cuentas-proveedores-${Environment}
       CodeUri: ../formalizesehub-parametrizacion/services/listar-cuentas-proveedores/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista cuentas contables asociadas a proveedores
       Events:
         Api:
@@ -539,6 +724,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-cuentas-proveedor-id-${Environment}
       CodeUri: ../formalizesehub-parametrizacion/services/listar-cuentas-proveedor-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista cuentas de un proveedor por ID
       Events:
         Api:
@@ -554,7 +747,18 @@ Resources:
       FunctionName: !Sub formalizese-crear-cuenta-proveedor-${Environment}
       CodeUri: ../formalizesehub-parametrizacion/services/crear-cuenta-proveedor/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Crea una cuenta para un proveedor
+      Environment:
+        Variables:
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         Api:
           Type: Api
@@ -569,7 +773,18 @@ Resources:
       FunctionName: !Sub formalizese-actualizar-cuenta-proveedor-${Environment}
       CodeUri: ../formalizesehub-parametrizacion/services/actualizar-cuenta-proveedor/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Actualiza una cuenta de proveedor
+      Environment:
+        Variables:
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         Api:
           Type: Api
@@ -584,6 +799,14 @@ Resources:
       FunctionName: !Sub formalizese-eliminar-cuenta-proveedor-${Environment}
       CodeUri: ../formalizesehub-parametrizacion/services/eliminar-cuenta-proveedor/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Elimina lógicamente una cuenta de proveedor
       Events:
         Api:
@@ -601,6 +824,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-proveedores-${Environment}
       CodeUri: ../formalizesehub-proveedores/services/listar-proveedores/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista todos los proveedores activos
       Events:
         Api:
@@ -616,6 +847,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-proveedores-id-${Environment}
       CodeUri: ../formalizesehub-proveedores/services/listar-proveedores-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Obtiene un proveedor por ID
       Events:
         Api:
@@ -631,6 +870,14 @@ Resources:
       FunctionName: !Sub formalizese-crear-proveedor-${Environment}
       CodeUri: ../formalizesehub-proveedores/services/crear-proveedor/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Crea un nuevo proveedor
       Events:
         Api:
@@ -646,6 +893,14 @@ Resources:
       FunctionName: !Sub formalizese-actualizar-proveedor-${Environment}
       CodeUri: ../formalizesehub-proveedores/services/actualizar-proveedor/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Actualiza un proveedor existente
       Events:
         Api:
@@ -661,6 +916,14 @@ Resources:
       FunctionName: !Sub formalizese-eliminar-proveedor-${Environment}
       CodeUri: ../formalizesehub-proveedores/services/eliminar-proveedor/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Elimina lógicamente un proveedor
       Events:
         Api:
@@ -683,6 +946,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-retenciones-${Environment}
       CodeUri: ../formalizesehub-retenciones/services/listar-retenciones/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista todas las retenciones activas
       Events:
         Api:
@@ -698,6 +969,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-retenciones-id-${Environment}
       CodeUri: ../formalizesehub-retenciones/services/listar-retenciones-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Obtiene una retención por ID
       Events:
         Api:
@@ -713,6 +992,14 @@ Resources:
       FunctionName: !Sub formalizese-crear-retencion-${Environment}
       CodeUri: ../formalizesehub-retenciones/services/crear-retencion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Crea una nueva retención tributaria
       Events:
         Api:
@@ -728,6 +1015,14 @@ Resources:
       FunctionName: !Sub formalizese-actualizar-retencion-${Environment}
       CodeUri: ../formalizesehub-retenciones/services/actualizar-retencion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Actualiza una retención existente
       Events:
         Api:
@@ -743,6 +1038,14 @@ Resources:
       FunctionName: !Sub formalizese-eliminar-retencion-${Environment}
       CodeUri: ../formalizesehub-retenciones/services/eliminar-retencion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Elimina lógicamente una retención (soft delete)
       Events:
         Api:
@@ -752,6 +1055,245 @@ Resources:
             Path: /retenciones/{id}
             Method: DELETE
 
+
+ # ── LAMBDAS:  COMPROBANTES SIIGO ────────────────────────────────────────────────
+
+
+  ListarComprobanteSiigoFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-listar-comprobante-siigo-${Environment}
+        CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Lista todos los comprobantes Siigo activos
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /comprobantes-siigo
+              Method: GET
+
+  ListarComprobanteSiigoByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-comprobante-siigo-id-${Environment}
+      CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds: 
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Obtiene un comprobante Siigo por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /comprobantes-siigo/{id}
+            Method: GET
+
+  CrearComprobanteSiigoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-comprobante-siigo-${Environment}
+      CodeUri: ../formalizesehub-comprobante-siigo/services/crear-comprobante-siigo/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea un nuevo comprobante Siigo
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /comprobantes-siigo
+            Method: POST
+
+  ActualizarComprobanteSiigoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-comprobante-siigo-${Environment}
+      CodeUri: ../formalizesehub-comprobante-siigo/services/actualizar-comprobante-siigo/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza un comprobante Siigo existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /comprobantes-siigo/{id}
+            Method: PUT
+
+  EliminarComprobanteSiigoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-comprobante-siigo-${Environment}
+      CodeUri: ../formalizesehub-comprobante-siigo/services/eliminar-comprobante-siigo/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Elimina lógicamente un comprobante Siigo (soft delete)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /comprobantes-siigo/{id}
+            Method: DELETE
+
+
+# ── LAMBDAS:  CODIGOS IMPUESTOS ────────────────────────────────────────────────
+
+
+  ListarCodigosImpuestosFunction:
+      Type: AWS::Serverless::Function
+      Properties:
+        FunctionName: !Sub formalizese-listar-codigo-impuestos-${Environment}
+        CodeUri: ../formalizesehub-codigo-impuestos/services/listar-codigo-impuestos/dist.zip
+        Role: !GetAtt LambdaExecutionRole.Arn
+        VpcConfig: !If
+          - UseVpcCondition
+          - SecurityGroupIds:
+              - !Ref LambdaSecurityGroup
+            SubnetIds:
+              - !Ref Subnet1Id
+              - !Ref Subnet2Id
+          - !Ref AWS::NoValue
+        Description: Lista todos los códigos de impuestos activos
+        Events:
+          Api:
+            Type: Api
+            Properties:
+              RestApiId: !Ref FormalizeSEApi
+              Path: /codigos-impuestos
+              Method: GET
+
+  ListarCodigosImpuestosByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-codigo-impuestos-id-${Environment}
+      CodeUri: ../formalizesehub-codigo-impuestos/services/listar-codigo-impuestos-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds: 
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Obtiene un código de impuesto por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /codigos-impuestos/{id}
+            Method: GET
+
+  CrearCodigosImpuestosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-codigo-impuestos-${Environment}
+      CodeUri: ../formalizesehub-codigo-impuestos/services/crear-codigo-impuestos/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea un nuevo código de impuesto
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /codigos-impuestos
+            Method: POST
+
+  ActualizarCodigosImpuestosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-codigo-impuestos-${Environment}
+      CodeUri: ../formalizesehub-codigo-impuestos/services/actualizar-codigo-impuestos/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza un código de impuesto existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /codigos-impuestos/{id}
+            Method: PUT
+
+  EliminarCodigosImpuestosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-codigo-impuestos-${Environment}
+      CodeUri: ../formalizesehub-codigo-impuestos/services/eliminar-codigo-impuestos/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Elimina lógicamente un código de impuesto (soft delete)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /codigos-impuestos/{id}
+            Method: DELETE
+
+
   # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
 
   CrearRedistribucionFunction:
@@ -760,6 +1302,14 @@ Resources:
       FunctionName: !Sub formalizese-crear-redistribucion-${Environment}
       CodeUri: ../formalizesehub-redistribuciones/services/crear-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Crea una redistribución contable (encabezado + detalles)
       Events:
         Api:
@@ -775,6 +1325,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-redistribuciones-${Environment}
       CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribuciones/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Lista redistribuciones contables con filtros opcionales
       Events:
         Api:
@@ -790,6 +1348,14 @@ Resources:
       FunctionName: !Sub formalizese-listar-redistribucion-id-${Environment}
       CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribucion-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Obtiene una redistribución con sus detalles por ID
       Events:
         Api:
@@ -805,6 +1371,14 @@ Resources:
       FunctionName: !Sub formalizese-actualizar-redistribucion-${Environment}
       CodeUri: ../formalizesehub-redistribuciones/services/actualizar-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Actualiza el encabezado de una redistribución contable
       Events:
         Api:
@@ -820,6 +1394,14 @@ Resources:
       FunctionName: !Sub formalizese-eliminar-redistribucion-${Environment}
       CodeUri: ../formalizesehub-redistribuciones/services/eliminar-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Elimina lógicamente una redistribución (soft delete)
       Events:
         Api:
@@ -835,6 +1417,14 @@ Resources:
       FunctionName: !Sub formalizese-generar-txt-redistribucion-${Environment}
       CodeUri: ../formalizesehub-redistribuciones/services/generar-txt-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
       Description: Genera la estructura base del archivo plano TXT compatible con TNS
       Events:
         Api:
@@ -842,6 +1432,205 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/txt
+            Method: POST
+
+  GenerarExcelTnsRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-excel-tns-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/generar-excel-tns-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Genera archivo Excel TNS con redistribuciones contables
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/excel-tns
+            Method: POST
+
+  GenerarExcelSiigoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-excel-siigo-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/generar-excel-siigo-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Genera archivo Excel Siigo con redistribuciones contables
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/excel-siigo
+            Method: POST
+
+  PrecalculoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-precalculo-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/precalculo-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Calcula preview de redistribución (filas, retenciones, consecutivo) sin persistir
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /precalculo-redistribucion
+            Method: POST
+
+  ListarFacturasRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-facturas-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/listar-facturas-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista todas las facturas de descargas completadas del cliente en un solo request
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /facturas-redistribucion
+            Method: GET
+
+  GrupoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-grupo-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Evalúa retención grupal (proveedor+fecha) y persiste resultado en facturas
+      Timeout: 30
+      Events:
+        ValidarGrupo:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /grupo-redistribucion
+            Method: POST
+
+  ConsecutivoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-consecutivo-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      Handler: index.consecutivoHandler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Retorna el próximo consecutivo de comprobante por tipo y prefijo
+      Timeout: 10
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /grupo-redistribucion/consecutivo
+            Method: GET
+
+  AutoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auto-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/auto-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Procesa lote de facturas - calcula y guarda redistribuciones automáticamente (trigger SQS)
+      Timeout: 120
+      MemorySize: 1024
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RedistribucionProcessingQueue.Arn
+            BatchSize: 1
+            BatchSize: 1
+
+  DetectarConsecutivoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-detectar-consecutivo-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/detectar-consecutivo/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Detecta configuración de consecutivo y agrupa redistribuciones por tipo de cliente (TNS/Siigo)
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/detectar-consecutivo
             Method: GET
 
   # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
@@ -885,10 +1674,13 @@ Resources:
       CodeUri: ../formalizesehub-dian-download/dist/
       Runtime: nodejs22.x
       Timeout: 300
-      MemorySize: 1024
+      MemorySize: 1600
       Role: !GetAtt LambdaExecutionRole.Arn
-      Description: Consume SQS, hace scraping DIAN, sube ZIP a S3
+      Description: Consume SQS, hace scraping DIAN con Puppeteer, sube ZIP a S3
       # Sin VPC — necesita salida a internet para scraping en catalogo-vpfe.dian.gov.co
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref InvoicesBucket
@@ -913,8 +1705,8 @@ Resources:
       FunctionName: !Sub formalizese-invoice-processing-${Environment}
       CodeUri: ../formalizesehub-invoice-processing/dist/
       Runtime: nodejs22.x
-      Timeout: 300
-      MemorySize: 1024
+      Timeout: 900
+      MemorySize: 2048
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
       # Sin VPC — necesita salida a internet para descargar XMLs de la DIAN
@@ -925,6 +1717,7 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref InvoicesBucket
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         SQSTrigger:
           Type: SQS
@@ -933,6 +1726,286 @@ Resources:
             BatchSize: 1
             FunctionResponseTypes:
               - ReportBatchItemFailures
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LAMBDAS: AUTENTICACIÓN Y USUARIOS
+# ─────────────────────────────────────────────────────────────────────────────
+
+  LoginFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auth-login-${Environment}
+      CodeUri: ../formalizesehub-auth/services/login/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Valida credenciales y emite JWT
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /auth/login
+            Method: POST
+
+  MisClientesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auth-mis-clientes-${Environment}
+      CodeUri: ../formalizesehub-auth/services/mis-clientes/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Devuelve los clientes de la organización del usuario autenticado
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /auth/mis-clientes
+            Method: GET
+
+  ListarRolesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-roles-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-roles/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista los roles disponibles (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /roles
+            Method: GET
+
+  ListarUsuariosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-usuarios-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-usuarios/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista usuarios de la organización (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios
+            Method: GET
+
+  ListarUsuarioIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-usuario-id-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-usuario-id/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Detalle de un usuario (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: GET
+
+  CrearUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/crear-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea un usuario en la organización (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios
+            Method: POST
+
+  ActualizarUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/actualizar-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza un usuario (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: PUT
+
+  EliminarUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/eliminar-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Elimina lógicamente un usuario (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: DELETE
+
+  AsignarClientesUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-asignar-clientes-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/asignar-clientes-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Asigna clientes a un usuario — preparado para fase 2 (solo admin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}/clientes
+            Method: PUT
+
+  ListarClientesUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-clientes-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-clientes-usuario/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista los clientes accesibles de un usuario (asignados + propios) — solo admin
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}/clientes
+            Method: GET
+
+  CrearOrganizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-organizacion-${Environment}
+      CodeUri: ../formalizesehub-auth/services/crear-organizacion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea una nueva organización (solo superadmin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones
+            Method: POST
+
+  ListarOrganizacionesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-organizaciones-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-organizaciones/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista todas las organizaciones activas (solo superadmin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones
+            Method: GET
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
@@ -961,3 +2034,15 @@ Outputs:
     Value: !Ref InvoiceProcessingQueue
     Export:
       Name: !Sub FormalizeSEHub-InvoiceProcessingQueue-${Environment}
+
+  RedistribucionProcessingQueueUrl:
+    Description: URL de la cola SQS de redistribución automática
+    Value: !Ref RedistribucionProcessingQueue
+    Export:
+      Name: !Sub FormalizeSEHub-RedistribucionProcessingQueueUrl-${Environment}
+
+  RedistribucionProcessingQueueArn:
+    Description: ARN de la cola SQS de redistribución automática
+    Value: !GetAtt RedistribucionProcessingQueue.Arn
+    Export:
+      Name: !Sub FormalizeSEHub-RedistribucionProcessingQueueArn-${Environment}

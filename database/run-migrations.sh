@@ -21,7 +21,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MIGRATIONS_DIR="$SCRIPT_DIR/migrations"
 STACK_NAME="formalizese-hub"
-AWS_PROFILE="${AWS_PROFILE:-personal}"
+AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
 AWS_REGION="${AWS_REGION:-sa-east-1}"
 ENVIRONMENT="${1:-dev}"
 
