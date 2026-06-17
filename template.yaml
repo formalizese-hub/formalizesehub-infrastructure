@@ -1427,13 +1427,7 @@ Resources:
         - !Ref AWS::NoValue
       Description: Genera la estructura base del archivo plano TXT compatible con TNS
       Events:
-        ApiGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /redistribuciones/txt
-            Method: GET
-        ApiPost:
+        Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
@@ -1458,13 +1452,7 @@ Resources:
       Timeout: 60
       MemorySize: 512
       Events:
-        ApiGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /redistribuciones/excel-tns
-            Method: GET
-        ApiPost:
+        Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
@@ -1489,13 +1477,7 @@ Resources:
       Timeout: 60
       MemorySize: 512
       Events:
-        ApiGet:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /redistribuciones/excel-siigo
-            Method: GET
-        ApiPost:
+        Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
