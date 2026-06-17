@@ -1432,7 +1432,7 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/txt
-            Method: GET
+            Method: POST
 
   GenerarExcelTnsRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1457,8 +1457,7 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/excel-tns
-            Method: GET
-  
+            Method: POST
 
   GenerarExcelSiigoRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1483,7 +1482,7 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/excel-siigo
-            Method: GET
+            Method: POST
 
   PrecalculoRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1675,9 +1674,9 @@ Resources:
       CodeUri: ../formalizesehub-dian-download/dist/
       Runtime: nodejs22.x
       Timeout: 300
-      MemorySize: 1024
+      MemorySize: 1600
       Role: !GetAtt LambdaExecutionRole.Arn
-      Description: Consume SQS, hace scraping DIAN, sube ZIP a S3
+      Description: Consume SQS, hace scraping DIAN con Puppeteer, sube ZIP a S3
       # Sin VPC — necesita salida a internet para scraping en catalogo-vpfe.dian.gov.co
       VpcConfig:
         SecurityGroupIds: []
