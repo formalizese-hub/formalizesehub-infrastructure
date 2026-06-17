@@ -1535,6 +1535,29 @@ Resources:
             Path: /facturas-redistribucion
             Method: GET
 
+  ActualizarFacturasRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-facturas-redistribucion-${Environment}
+      CodeUri: ../formalizesehub-redistribuciones/services/actualizar-facturas-redistribucion/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza campos de facturas (historico) en batch
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /actualizar-facturas-redistribucion
+            Method: PUT
+
   GrupoRedistribucionFunction:
     Type: AWS::Serverless::Function
     Properties:
