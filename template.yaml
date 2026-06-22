@@ -2108,6 +2108,72 @@ Resources:
             Method: GET
 
 # ─────────────────────────────────────────────────────────────────────────────
+# MONITORING: SNS + CLOUDWATCH ALARMS
+# ─────────────────────────────────────────────────────────────────────────────
+
+  AlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub formalizese-alerts-${Environment}
+      Subscription:
+        - Protocol: email
+          Endpoint: dario1091@gmail.com
+
+  AlarmDLQInvoiceProcessing:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub formalizese-dlq-invoice-processing-${Environment}
+      AlarmDescription: Hay facturas que fallaron procesamiento (mensajes en DLQ)
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt InvoiceProcessingDLQ.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertsTopic
+
+  AlarmDLQRedistribucion:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub formalizese-dlq-redistribucion-${Environment}
+      AlarmDescription: Hay redistribuciones que fallaron procesamiento (mensajes en DLQ)
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt RedistribucionProcessingDLQ.QueueName
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertsTopic
+
+  AlarmApiGateway5xx:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub formalizese-api-5xx-${Environment}
+      AlarmDescription: API Gateway retornando errores 5xx a los usuarios
+      Namespace: AWS/ApiGateway
+      MetricName: 5XXError
+      Dimensions:
+        - Name: ApiName
+          Value: !Sub FormalizeSEHub-API-${Environment}
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlertsTopic
+
+# ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
 # ─────────────────────────────────────────────────────────────────────────────
 Outputs:
