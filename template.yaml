@@ -552,6 +552,55 @@ Resources:
             Path: /facturas/{id}/grupo-retencion
             Method: PATCH
 
+  ValidarExcelFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-validar-excel-${Environment}
+      CodeUri: ../formalizesehub-descargas/services/validar-excel/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Valida CUFEs del Excel DIAN contra facturas en BBDD
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /descargas/validar-excel
+            Method: POST
+
+  FacturasManualesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-facturas-manuales-${Environment}
+      CodeUri: ../formalizesehub-descargas/services/facturas-manuales/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref InvoicesBucket
+      Description: Subida manual de facturas faltantes (ZIP con XML+PDF)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /descargas/facturas-manuales
+            Method: POST
+
   # ── LAMBDAS: CUENTAS CONTABLES ───────────────────────────────────────────────
 
   ListarCuentasContablesFunction:
