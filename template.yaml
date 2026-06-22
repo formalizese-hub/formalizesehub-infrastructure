@@ -1750,6 +1750,34 @@ Resources:
             FunctionResponseTypes:
               - ReportBatchItemFailures
 
+  EmailInvoicePollerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-email-invoice-poller-${Environment}
+      CodeUri: ../formalizesehub-email-poller/dist/
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Timeout: 300
+      MemorySize: 512
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Description: Polling Gmail cada 5 min — descarga ZIPs de facturas y encola en SQS
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
+      Environment:
+        Variables:
+          GMAIL_SECRET_NAME: !Sub formalizese/${Environment}/gmail-service-account
+          GMAIL_USER_EMAIL: !Sub "{{resolve:ssm:/formalizese/${Environment}/gmail-user-email}}"
+          SQS_QUEUE_URL: !Ref InvoiceProcessingQueue
+          S3_BUCKET: !Ref InvoicesBucket
+      Events:
+        SchedulePoller:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+            Description: Polling buzón de facturas Gmail
+            Enabled: true
+
 # ─────────────────────────────────────────────────────────────────────────────
 # LAMBDAS: AUTENTICACIÓN Y USUARIOS
 # ─────────────────────────────────────────────────────────────────────────────

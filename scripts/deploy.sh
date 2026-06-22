@@ -103,6 +103,7 @@ STANDALONE_REPOS=(
     "formalizesehub-dian-download"
     "formalizesehub-invoice-processing"
     "formalizesehub-dian-download-proxy"
+    "formalizesehub-email-poller"
 )
 
 # ── Verificar si faltan artifacts (dist.zip) ──────────
