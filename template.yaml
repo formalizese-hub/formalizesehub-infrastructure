@@ -299,6 +299,10 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:formalizese/email-poller/gmail-credentials*
 
   # ── API GATEWAY ──────────────────────────────────────────────────────────────
   # Un único API Gateway para todos los servicios.
@@ -1349,7 +1353,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/crear-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/crear-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1372,7 +1376,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-redistribuciones-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribuciones/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/listar-redistribuciones/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1395,7 +1399,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-redistribucion-id-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribucion-id/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/listar-redistribucion-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1418,7 +1422,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/actualizar-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/actualizar-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1441,7 +1445,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/eliminar-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/eliminar-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1464,7 +1468,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-generar-txt-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/generar-txt-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/generar-txt-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1487,7 +1491,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-generar-excel-tns-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/generar-excel-tns-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/generar-excel-tns-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1512,7 +1516,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-generar-excel-siigo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/generar-excel-siigo-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/generar-excel-siigo-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1537,7 +1541,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-precalculo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/precalculo-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/precalculo-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1561,7 +1565,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-facturas-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/listar-facturas-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/listar-facturas-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1588,7 +1592,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-facturas-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/actualizar-facturas-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/actualizar-facturas-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1611,7 +1615,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-grupo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/grupo-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1635,7 +1639,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-consecutivo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/grupo-redistribucion/dist.zip
       Handler: index.consecutivoHandler
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
@@ -1660,7 +1664,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-auto-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/auto-redistribucion/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/auto-redistribucion/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1685,7 +1689,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-detectar-consecutivo-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/detectar-consecutivo/dist.zip
+      CodeUri: ../formalizesehub-redistribucion/services/detectar-consecutivo/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1815,16 +1819,22 @@ Resources:
         SubnetIds: []
       Environment:
         Variables:
-          GMAIL_SECRET_NAME: !Sub formalizese/${Environment}/gmail-service-account
+          GMAIL_SECRET_NAME: "formalizese/email-poller/gmail-credentials"
           GMAIL_USER_EMAIL: !Sub "{{resolve:ssm:/formalizese/${Environment}/gmail-user-email}}"
           SQS_QUEUE_URL: !Ref InvoiceProcessingQueue
           S3_BUCKET: !Ref InvoicesBucket
       Events:
-        SchedulePoller:
+        SchedulePollerMorning:
           Type: Schedule
           Properties:
-            Schedule: rate(5 minutes)
-            Description: Polling buzón de facturas Gmail
+            Schedule: cron(0 15 * * ? *)   # 10:00am Colombia (UTC-5)
+            Description: Polling buzón de facturas Gmail - 10am
+            Enabled: true
+        SchedulePollerAfternoon:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 21 * * ? *)   # 4:00pm Colombia (UTC-5)
+            Description: Polling buzón de facturas Gmail - 4pm
             Enabled: true
 
 # ─────────────────────────────────────────────────────────────────────────────

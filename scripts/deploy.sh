@@ -93,7 +93,7 @@ WORKSPACE_REPOS=(
     "formalizesehub-proveedores"
     "formalizesehub-retenciones"
     "formalizesehub-descargas"
-    "formalizesehub-redistribuciones"
+    "formalizesehub-redistribucion"
     "formalizesehub-codigo-impuestos"
     "formalizesehub-comprobante-siigo"
 )
