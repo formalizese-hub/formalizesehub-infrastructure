@@ -570,7 +570,10 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Valida CUFEs del Excel DIAN contra facturas en BBDD
+      Description: Valida CUFEs del Excel DIAN contra facturas en BBDD y dispara redistribución automática
+      Environment:
+        Variables:
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         Api:
           Type: Api
