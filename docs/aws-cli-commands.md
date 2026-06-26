@@ -230,6 +230,94 @@ aws sqs purge-queue \
 
 ---
 
+## API Gateway
+
+```bash
+# Listar REST APIs
+aws apigateway get-rest-apis \
+  --query 'items[*].[name,id]' \
+  --output table \
+  --profile formalizese-new --region sa-east-1
+
+# Ver stages de una API (obtener el id de arriba)
+aws apigateway get-stages \
+  --rest-api-id API_ID \
+  --query 'item[*].[stageName,deploymentId]' \
+  --output table \
+  --profile formalizese-new --region sa-east-1
+
+# Ver recursos/rutas de una API
+aws apigateway get-resources \
+  --rest-api-id API_ID \
+  --query 'items[*].[path,resourceMethods]' \
+  --output table \
+  --profile formalizese-new --region sa-east-1
+
+# URL del endpoint (formato)
+# https://API_ID.execute-api.sa-east-1.amazonaws.com/STAGE/
+```
+
+---
+
+## EventBridge / Scheduler
+
+```bash
+# Listar reglas de EventBridge
+aws events list-rules \
+  --name-prefix formalizese \
+  --query 'Rules[*].[Name,State,ScheduleExpression]' \
+  --output table \
+  --profile formalizese-new --region sa-east-1
+
+# Deshabilitar una regla (pausar schedule)
+aws events disable-rule \
+  --name formalizese-email-poller-schedule-dev \
+  --profile formalizese-new --region sa-east-1
+
+# Habilitar una regla
+aws events enable-rule \
+  --name formalizese-email-poller-schedule-dev \
+  --profile formalizese-new --region sa-east-1
+
+# Ver targets de una regla (qué lambda invoca)
+aws events list-targets-by-rule \
+  --rule formalizese-email-poller-schedule-dev \
+  --query 'Targets[*].[Arn,Id]' \
+  --output table \
+  --profile formalizese-new --region sa-east-1
+```
+
+---
+
+## IAM (Roles de Lambda)
+
+```bash
+# Ver el rol de una lambda
+aws lambda get-function-configuration \
+  --function-name formalizese-invoice-processing-dev \
+  --query 'Role' \
+  --output text \
+  --profile formalizese-new --region sa-east-1
+
+# Ver políticas adjuntas a un rol
+aws iam list-attached-role-policies \
+  --role-name formalizese-lambda-role-dev \
+  --profile formalizese-new --region sa-east-1
+
+# Ver políticas inline de un rol
+aws iam list-role-policies \
+  --role-name formalizese-lambda-role-dev \
+  --profile formalizese-new --region sa-east-1
+
+# Ver detalle de una política inline
+aws iam get-role-policy \
+  --role-name formalizese-lambda-role-dev \
+  --policy-name NOMBRE_POLITICA \
+  --profile formalizese-new --region sa-east-1
+```
+
+---
+
 ## CloudFormation / SAM Stack
 
 ```bash
@@ -295,6 +383,26 @@ psql -h formalizese-db-dev.crm4ysgme3wx.sa-east-1.rds.amazonaws.com \
      -p 5432 -U postgres -d formalizese
 ```
 
+### Comandos psql para explorar la BD
+
+```sql
+-- Listar todas las tablas
+\dt
+
+-- Ver columnas/estructura de una tabla
+\d nombre_tabla
+
+-- Formato tabular forzado (si se muestra en modo expandido)
+\x off
+
+-- Ver índices de una tabla
+\di nombre_tabla*
+
+-- Ver tamaño de las tablas
+SELECT relname AS tabla, pg_size_pretty(pg_total_relation_size(relid)) AS tamaño
+FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC;
+```
+
 ### Consultas útiles una vez conectado
 
 ```sql
@@ -317,6 +425,60 @@ LIMIT 20;
 
 -- Ver emails pendientes de procesar
 SELECT * FROM emails_procesados WHERE status = 'pending';
+```
+
+### Diagnóstico y operaciones frecuentes
+
+```sql
+-- Contar registros por tabla (diagnóstico rápido)
+SELECT 'facturas' AS tabla, COUNT(*) FROM facturas
+UNION ALL SELECT 'proveedores', COUNT(*) FROM proveedores
+UNION ALL SELECT 'descargas', COUNT(*) FROM descargas
+UNION ALL SELECT 'emails_procesados', COUNT(*) FROM emails_procesados
+UNION ALL SELECT 'factura_productos', COUNT(*) FROM factura_productos
+UNION ALL SELECT 'factura_impuestos', COUNT(*) FROM factura_impuestos;
+
+-- Ver descargas recientes con su estado
+SELECT id, estado, total_invoices, errores, mensajes_log, created_at
+FROM descargas
+ORDER BY created_at DESC
+LIMIT 10;
+
+-- Buscar facturas de un proveedor por NIT
+SELECT id, numero_factura, fecha_emision, total, tipo_documento, nit_proveedor, nombre_proveedor
+FROM facturas
+WHERE nit_proveedor = 'NIT_AQUI' AND cliente_id = 'UUID_CLIENTE'
+ORDER BY fecha_emision DESC;
+
+-- Facturas de una descarga específica
+SELECT id, numero_factura, cufe, nit_proveedor, nombre_proveedor, tipo_documento, xml_procesado
+FROM facturas
+WHERE descarga_id = 'UUID_DESCARGA';
+
+-- Proveedores duplicados (mismo NIT, distinto cliente)
+SELECT nit, COUNT(*) AS apariciones, array_agg(DISTINCT cliente_id) AS clientes
+FROM proveedores
+GROUP BY nit
+HAVING COUNT(*) > 1;
+
+-- Facturas sin XML procesado
+SELECT id, cufe, nit_proveedor, fecha_emision
+FROM facturas
+WHERE xml_procesado = false AND descarga_id = 'UUID_DESCARGA';
+
+-- Ver queries activas (detectar colgadas)
+SELECT pid, now() - pg_stat_activity.query_start AS duracion, query, state
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY duracion DESC;
+
+-- Matar una query colgada (usar el pid de la query anterior)
+SELECT pg_terminate_backend(PID_AQUI);
+
+-- Ver conexiones activas por aplicación
+SELECT application_name, state, COUNT(*)
+FROM pg_stat_activity
+GROUP BY application_name, state;
 ```
 
 ---
