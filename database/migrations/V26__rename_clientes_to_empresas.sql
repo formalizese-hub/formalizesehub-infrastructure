@@ -15,7 +15,6 @@ ALTER TABLE redistribucion_contable RENAME COLUMN cliente_id TO empresa_id;
 ALTER TABLE emails_procesados RENAME COLUMN cliente_id TO empresa_id;
 ALTER TABLE retenciones RENAME COLUMN cliente_id TO empresa_id;
 ALTER TABLE cuentas_contables RENAME COLUMN cliente_id TO empresa_id;
-ALTER TABLE proveedor_por_cuenta_contable RENAME COLUMN cliente_id TO empresa_id;
 
 -- 3. Renombrar tabla pivote usuario_clientes → usuario_empresas
 ALTER TABLE usuario_clientes RENAME TO usuario_empresas;
