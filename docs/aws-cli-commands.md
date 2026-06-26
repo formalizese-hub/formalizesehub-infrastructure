@@ -406,14 +406,14 @@ FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DES
 ### Consultas útiles una vez conectado
 
 ```sql
--- Listar clientes con su NIT y email de facturas
+-- Listar empresas con su NIT y email de facturas
 SELECT id, nombre, nit, email_facturas
-FROM clientes
+FROM empresas
 WHERE deleted_at IS NULL
 LIMIT 10;
 
--- Actualizar email_facturas de un cliente (para el alias Gmail)
-UPDATE clientes
+-- Actualizar email_facturas de una empresa (para el alias Gmail)
+UPDATE empresas
 SET email_facturas = 'facturas+NIT@formalizese.com'
 WHERE nit = 'NIT_DEL_CLIENTE';
 

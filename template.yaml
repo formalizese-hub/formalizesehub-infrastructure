@@ -65,12 +65,12 @@ Globals:
   Api:
     Cors:
       AllowMethods: "'GET,POST,PUT, PATCH,DELETE,OPTIONS'"
-      AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
+      AllowHeaders: "'Content-Type,Authorization,X-Empresa-Id'"
       AllowOrigin: "'*'"
   Function:
     Runtime: nodejs22.x
     Timeout: 30
-    MemorySize: 512
+    MemorySize: 256
     Handler: index.handler
     Environment:
       Variables:
@@ -201,22 +201,7 @@ Resources:
         deadLetterTargetArn: !GetAtt InvoiceProcessingDLQ.Arn
         maxReceiveCount: 3
 
-  DianProcessingDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub formalizese-dian-processing-dlq-${Environment}
-      MessageRetentionPeriod: 1209600  # 14 días
 
-  DianProcessingQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub formalizese-dian-processing-${Environment}
-      VisibilityTimeout: 360          # 6 min — >= timeout de DianProcessingFunction
-      MessageRetentionPeriod: 1209600 # 14 días
-      ReceiveMessageWaitTimeSeconds: 20
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt DianProcessingDLQ.Arn
-        maxReceiveCount: 3
 
   RedistribucionProcessingDLQ:
     Type: AWS::SQS::Queue
@@ -273,16 +258,7 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt InvoiceProcessingQueue.Arn
-              - Effect: Allow
-                Action:
-                  - sqs:SendMessage
-                Resource: !GetAtt DianProcessingQueue.Arn
-              - Effect: Allow
-                Action:
-                  - sqs:ReceiveMessage
-                  - sqs:DeleteMessage
-                  - sqs:GetQueueAttributes
-                Resource: !GetAtt DianProcessingQueue.Arn
+
               - Effect: Allow
                 Action:
                   - sqs:SendMessage
@@ -321,25 +297,25 @@ Resources:
         - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       Cors:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
-        AllowHeaders: "'Content-Type,Authorization,X-Cliente-Id'"
+        AllowHeaders: "'Content-Type,Authorization,X-Empresa-Id'"
         AllowOrigin: "'*'"
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Empresa-Id'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         DEFAULT_5XX:
           ResponseParameters:
             Headers:
               Access-Control-Allow-Origin: "'*'"
-              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Cliente-Id'"
+              Access-Control-Allow-Headers: "'Content-Type,Authorization,X-Empresa-Id'"
               Access-Control-Allow-Methods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
 
-  # ── LAMBDAS: CLIENTES ────────────────────────────────────────────────────────
+  # ── LAMBDAS: EMPRESAS ────────────────────────────────────────────────────────
   # Para agregar un nuevo endpoint de clientes:
-  #   1. Crear el servicio en formalizesehub-cliente/services/nuevo-servicio/
+  #   1. Crear el servicio en formalizesehub-empresa/services/nuevo-servicio/
   #   2. Agregar la función aquí siguiendo el mismo patrón
   #   3. Ejecutar npm run build en el repo de cliente
   #   4. Hacer deploy
@@ -347,8 +323,8 @@ Resources:
   ListarClientesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-listar-clientes-${Environment}
-      CodeUri: ../formalizesehub-cliente/services/listar-clientes/dist.zip
+      FunctionName: !Sub formalizese-listar-empresas-${Environment}
+      CodeUri: ../formalizesehub-empresa/services/listar-empresas/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -358,20 +334,20 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Lista todos los clientes activos
+      Description: Lista todas las empresas activas
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /clientes
+            Path: /empresas
             Method: GET
 
   ListarClientesByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-listar-clientes-id-${Environment}
-      CodeUri: ../formalizesehub-cliente/services/listar-clientes-id/dist.zip
+      FunctionName: !Sub formalizese-listar-empresas-id-${Environment}
+      CodeUri: ../formalizesehub-empresa/services/listar-empresas-id/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -381,20 +357,20 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Obtiene un cliente por ID
+      Description: Obtiene una empresa por ID
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /clientes/{id}
+            Path: /empresas/{id}
             Method: GET
 
   CrearClienteFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-crear-cliente-${Environment}
-      CodeUri: ../formalizesehub-cliente/services/crear-cliente/dist.zip
+      FunctionName: !Sub formalizese-crear-empresa-${Environment}
+      CodeUri: ../formalizesehub-empresa/services/crear-empresa/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -404,20 +380,20 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Crea un nuevo cliente
+      Description: Crea una nueva empresa
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /clientes
+            Path: /empresas
             Method: POST
 
   ActualizarClienteFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-actualizar-cliente-${Environment}
-      CodeUri: ../formalizesehub-cliente/services/actualizar-cliente/dist.zip
+      FunctionName: !Sub formalizese-actualizar-empresa-${Environment}
+      CodeUri: ../formalizesehub-empresa/services/actualizar-empresa/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -427,20 +403,20 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Actualiza un cliente existente
+      Description: Actualiza una empresa existente
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /clientes/{id}
+            Path: /empresas/{id}
             Method: PUT
 
   EliminarClienteFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-eliminar-cliente-${Environment}
-      CodeUri: ../formalizesehub-cliente/services/eliminar-cliente/dist.zip
+      FunctionName: !Sub formalizese-eliminar-empresa-${Environment}
+      CodeUri: ../formalizesehub-empresa/services/eliminar-empresa/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -450,13 +426,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Elimina lógicamente un cliente
+      Description: Elimina lógicamente una empresa
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /clientes/{id}
+            Path: /empresas/{id}
             Method: DELETE
 
   # ── LAMBDAS: DESCARGAS ─────────────────────────────────────────────────────
@@ -571,6 +547,7 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Valida CUFEs del Excel DIAN contra facturas en BBDD y dispara redistribución automática
+      MemorySize: 512
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
@@ -1679,7 +1656,7 @@ Resources:
         - !Ref AWS::NoValue
       Description: Procesa lote de facturas - calcula y guarda redistribuciones automáticamente (trigger SQS)
       Timeout: 120
-      MemorySize: 1024
+      MemorySize: 512
       Events:
         SQSTrigger:
           Type: SQS
@@ -1712,71 +1689,12 @@ Resources:
             Path: /redistribuciones/detectar-consecutivo
             Method: GET
 
-  # ── LAMBDAS: FLUJO DIAN ──────────────────────────────────────────────────────
-  # Flujo completo:
-  #   POST /dian/download
-  #     → API Gateway publica directamente en DianProcessingQueue (responde 202)
-  #       → DianProcessingQueue (SQS trigger)
-  #         → DianProcessingFunction (hace scraping, descarga Excel, sube a S3)
-  #           → InvoiceProcessingQueue (SQS trigger)
-  #             → InvoiceProcessingFunction (procesa Excel+XML, persiste en DB)
-
-  # Lambda proxy: POST /dian/download → SQS (reemplaza integración directa VTL)
-  DianDownloadProxyFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-dian-download-proxy-${Environment}
-      CodeUri: ../formalizesehub-dian-download-proxy/dist.zip
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Description: Proxy Lambda - recibe POST /dian/download y envía a SQS
-      Timeout: 10
-      MemorySize: 256
-      # Sin VPC — solo necesita acceso a SQS
-      VpcConfig:
-        SecurityGroupIds: []
-        SubnetIds: []
-      Environment:
-        Variables:
-          SQS_DIAN_PROCESSING_URL: !Ref DianProcessingQueue
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /dian/download
-            Method: POST
-
-  DianProcessingFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-dian-processing-${Environment}
-      CodeUri: ../formalizesehub-dian-download/dist/
-      Runtime: nodejs22.x
-      Timeout: 300
-      MemorySize: 1600
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Description: Consume SQS, hace scraping DIAN con Puppeteer, sube ZIP a S3
-      # Sin VPC — necesita salida a internet para scraping en catalogo-vpfe.dian.gov.co
-      VpcConfig:
-        SecurityGroupIds: []
-        SubnetIds: []
-      Environment:
-        Variables:
-          S3_BUCKET_NAME: !Ref InvoicesBucket
-          SQS_INVOICE_PROCESSING_URL: !Ref InvoiceProcessingQueue
-          DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
-          DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
-          DB_NAME: !Ref DatabaseName
-          DB_USER: !Ref DatabaseUser
-          DB_PASSWORD: !Ref DatabasePassword
-      Events:
-        SQSTrigger:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt DianProcessingQueue.Arn
-            BatchSize: 1
-            FunctionResponseTypes:
-              - ReportBatchItemFailures
+  # ── LAMBDAS: PROCESAMIENTO DE FACTURAS ─────────────────────────────────────
+  # Flujo actual (Gmail):
+  #   EventBridge → EmailInvoicePoller → S3 + SQS (InvoiceProcessingQueue)
+  #     → InvoiceProcessingFunction (procesa Excel+XML, persiste en DB)
+  #
+  # Flujo DIAN (DEPRECADO — código preservado en repos dian-download y dian-download-proxy)
 
   InvoiceProcessingFunction:
     Type: AWS::Serverless::Function
@@ -2054,8 +1972,8 @@ Resources:
   ListarClientesUsuarioFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-listar-clientes-usuario-${Environment}
-      CodeUri: ../formalizesehub-auth/services/listar-clientes-usuario/dist.zip
+      FunctionName: !Sub formalizese-listar-empresas-usuario-${Environment}
+      CodeUri: ../formalizesehub-auth/services/listar-empresas-usuario/dist.zip
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition

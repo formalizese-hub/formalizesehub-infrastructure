@@ -87,22 +87,20 @@ echo ""
 # ── Repos con npm workspaces (build:all) ──────────────
 WORKSPACE_REPOS=(
     "formalizesehub-auth"
-    "formalizesehub-cliente"
+    "formalizesehub-empresa"
     "formalizesehub-cuentas-contables"
     "formalizesehub-parametrizacion"
     "formalizesehub-proveedores"
     "formalizesehub-retenciones"
     "formalizesehub-descargas"
-    "formalizesehub-redistribucion"
+    "formalizesehub-redistribuciones"
     "formalizesehub-codigo-impuestos"
     "formalizesehub-comprobante-siigo"
 )
 
 # ── Repos con build propio ────────────────────────────
 STANDALONE_REPOS=(
-    "formalizesehub-dian-download"
     "formalizesehub-invoice-processing"
-    "formalizesehub-dian-download-proxy"
     "formalizesehub-email-poller"
 )
 
@@ -209,11 +207,9 @@ DEPLOY_BUCKET="formalizese-invoices-${ENV}-152406482061"
 
 # Mapa: directorio-repo → nombre-lambda (arrays paralelos para compatibilidad bash 3.x)
 LARGE_LAMBDA_REPOS=(
-    "formalizesehub-dian-download"
     "formalizesehub-invoice-processing"
 )
 LARGE_LAMBDA_NAMES=(
-    "formalizese-dian-processing-${ENV}"
     "formalizese-invoice-processing-${ENV}"
 )
 
