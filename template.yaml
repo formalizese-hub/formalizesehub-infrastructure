@@ -279,6 +279,10 @@ Resources:
                 Action:
                   - secretsmanager:GetSecretValue
                 Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:formalizese/email-poller/gmail-credentials*
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:formalizese-invoice-processing-${Environment}
 
   # ── API GATEWAY ──────────────────────────────────────────────────────────────
   # Un único API Gateway para todos los servicios.
@@ -576,6 +580,7 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET: !Ref InvoicesBucket
+          INVOICE_PROCESSING_FUNCTION: !Sub formalizese-invoice-processing-${Environment}
       Description: Subida manual de facturas faltantes (ZIP con XML+PDF)
       Events:
         Api:
