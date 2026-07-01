@@ -15,9 +15,12 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuración
-STACK_NAME="formalizese-hub"
-AWS_PROFILE="${AWS_PROFILE:-personal}"
+AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
 AWS_REGION="${AWS_REGION:-sa-east-1}"
+DB_ENDPOINT="${DB_HOST:-formalizese-db-dev.crm4ysgme3wx.sa-east-1.rds.amazonaws.com}"
+DB_PORT="5432"
+DB_NAME="formalizese"
+DB_USER="postgres"
 
 # Funciones
 print_header() {
@@ -37,27 +40,9 @@ print_info() {
 # Main
 print_header "Historial de Migraciones - FormalizeSE Hub"
 
-echo -e "Stack: ${BLUE}$STACK_NAME${NC}"
+echo -e "Host: ${BLUE}$DB_ENDPOINT${NC}"
+echo -e "Base de datos: ${BLUE}$DB_NAME${NC}"
 echo -e "Región: ${BLUE}$AWS_REGION${NC}\n"
-
-print_info "Obteniendo información de la base de datos..."
-
-# Obtener endpoint de la BD desde CloudFormation
-DB_ENDPOINT=$(aws cloudformation describe-stacks \
-    --stack-name "$STACK_NAME" \
-    --query 'Stacks[0].Outputs[?OutputKey==`DatabaseEndpoint`].OutputValue' \
-    --output text \
-    --profile "$AWS_PROFILE" \
-    --region "$AWS_REGION" 2>/dev/null)
-
-if [ -z "$DB_ENDPOINT" ]; then
-    print_error "No se pudo obtener la información del stack '$STACK_NAME'"
-    exit 1
-fi
-
-DB_PORT="5432"
-DB_NAME="formalizese"
-DB_USER="postgres"
 
 # Leer contraseña
 read -sp "Contraseña de PostgreSQL ($DB_USER@$DB_ENDPOINT): " DB_PASSWORD
