@@ -731,6 +731,29 @@ Resources:
             Path: /cuentas-contables/cargar-masiva
             Method: POST
 
+  DescargarMasivaCuentasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-descargar-masiva-cuentas-${Environment}
+      CodeUri: ../formalizesehub-cuentas-contables/services/descargar-masiva/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Descarga masiva de cuentas contables a Excel
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/descargar
+            Method: GET
+
   # ── LAMBDAS: PARAMETRIZACIÓN ─────────────────────────────────────────────────
 
   ListarCuentasProveedoresFunction:
@@ -854,6 +877,57 @@ Resources:
             Path: /proveedores-por-cuentas/{id}
             Method: DELETE
 
+  CargarMasivaParametrizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-cargar-masiva-parametrizacion-${Environment}
+      CodeUri: ../formalizesehub-parametrizacion/services/cargar-masiva/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Carga masiva de parametrizaciones proveedor-cuenta desde Excel
+      Timeout: 60
+      MemorySize: 512
+      Environment:
+        Variables:
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas/cargar-masiva
+            Method: POST
+
+  DescargarMasivaParametrizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-descargar-masiva-parametrizacion-${Environment}
+      CodeUri: ../formalizesehub-parametrizacion/services/descargar-masiva/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Descarga masiva de parametrizaciones proveedor-cuenta a Excel
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas/descargar
+            Method: GET
+
   # ── LAMBDAS: PROVEEDORES ─────────────────────────────────────────────────────
 
   ListarProveedoresFunction:
@@ -970,6 +1044,54 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /proveedores/{id}
             Method: DELETE
+
+  CargarMasivaProveedoresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-cargar-masiva-proveedores-${Environment}
+      CodeUri: ../formalizesehub-proveedores/services/cargar-masiva/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Carga masiva de proveedores desde Excel
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/cargar-masiva
+            Method: POST
+
+  DescargarMasivaProveedoresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-descargar-masiva-proveedores-${Environment}
+      CodeUri: ../formalizesehub-proveedores/services/descargar-masiva/dist.zip
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Descarga masiva de proveedores a Excel
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/descargar
+            Method: GET
 
   # ── LAMBDAS: RETENCIONES ─────────────────────────────────────────────────────
   # Para agregar un nuevo endpoint de retenciones:
