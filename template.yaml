@@ -1848,6 +1848,8 @@ Resources:
           Properties:
             Queue: !GetAtt InvoiceProcessingQueue.Arn
             BatchSize: 1
+            ScalingConfig:
+              MaximumConcurrency: 20  # Máximo 20 Lambdas concurrentes desde esta cola — protege RDS
             FunctionResponseTypes:
               - ReportBatchItemFailures
 
