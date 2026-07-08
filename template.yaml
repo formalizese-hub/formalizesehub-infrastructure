@@ -64,9 +64,10 @@ Parameters:
 Globals:
   Api:
     Cors:
-      AllowMethods: "'GET,POST,PUT, PATCH,DELETE,OPTIONS'"
+      AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization,X-Empresa-Id'"
       AllowOrigin: "'*'"
+      MaxAge: "'7200'"
   Function:
     Runtime: nodejs22.x
     Timeout: 30
@@ -303,6 +304,7 @@ Resources:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Empresa-Id'"
         AllowOrigin: "'*'"
+        MaxAge: "'7200'"
       GatewayResponses:
         DEFAULT_4XX:
           ResponseParameters:
@@ -1833,6 +1835,7 @@ Resources:
       MemorySize: 2048
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
+      ReservedConcurrentExecutions: 5
       # Sin VPC — necesita salida a internet para descargar XMLs de la DIAN
       # El RDS tiene PubliclyAccessible: true en dev, accesible por endpoint público
       VpcConfig:
@@ -1849,7 +1852,7 @@ Resources:
             Queue: !GetAtt InvoiceProcessingQueue.Arn
             BatchSize: 1
             ScalingConfig:
-              MaximumConcurrency: 20  # Máximo 20 Lambdas concurrentes desde esta cola — protege RDS
+              MaximumConcurrency: 5  # Máximo 5 Lambdas concurrentes — protege RDS db.t3.micro de saturación de conexiones
             FunctionResponseTypes:
               - ReportBatchItemFailures
 
