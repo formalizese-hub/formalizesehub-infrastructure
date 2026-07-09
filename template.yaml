@@ -543,6 +543,7 @@ Resources:
     Properties:
       FunctionName: !Sub formalizese-validar-excel-${Environment}
       CodeUri: ../formalizesehub-descargas/services/validar-excel/dist.zip
+      Timeout: 60
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
