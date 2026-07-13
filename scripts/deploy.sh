@@ -1,14 +1,19 @@
 #!/bin/bash
 # =====================================================
 # Deploy consolidado - FormalizeSE Hub
-# Uso: ./scripts/deploy.sh [dev|staging|prod] [--force]
+# Uso: ./scripts/deploy.sh [dev|staging|prod] [--force|--infra-only]
+#
+# --force       Build todos los repos + SAM deploy
+# --infra-only  Solo SAM build + deploy (no buildea repos, usa placeholder)
 # =====================================================
 
 set -e
 
 ENV="${1:-dev}"
 FORCE=false
+INFRA_ONLY=false
 [[ "$2" == "--force" ]] && FORCE=true
+[[ "$2" == "--infra-only" ]] && INFRA_ONLY=true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(dirname "$SCRIPT_DIR")"
@@ -17,7 +22,7 @@ STATE_DIR="$INFRA_DIR/.deploy-state"
 
 if [[ "$ENV" != "dev" && "$ENV" != "staging" && "$ENV" != "prod" && "$ENV" != "new" ]]; then
     echo "❌ Entorno inválido: $ENV"
-    echo "   Uso: ./scripts/deploy.sh [dev|staging|prod|new] [--force]"
+    echo "   Uso: ./scripts/deploy.sh [dev|staging|prod|new] [--force|--infra-only]"
     exit 1
 fi
 
@@ -81,8 +86,18 @@ echo " FormalizeSE Hub — Deploy [$ENV]"
 if [ "$FORCE" = true ]; then
     echo " ⚡ Modo FORCE: se ignoran markers de estado"
 fi
+if [ "$INFRA_ONLY" = true ]; then
+    echo " 🏗️  Modo INFRA-ONLY: solo SAM build + deploy (placeholder code)"
+fi
 echo "=================================================="
 echo ""
+
+if [ "$INFRA_ONLY" = true ]; then
+    echo "⏭️  Saltando build de repos (modo --infra-only)"
+    echo "   Las Lambdas se crean con código placeholder."
+    echo "   GitHub Actions deployará el código real."
+    echo ""
+else
 
 # ── Repos con npm workspaces (build:all) ──────────────
 WORKSPACE_REPOS=(
@@ -200,9 +215,11 @@ else
     done
 fi
 
+fi  # end INFRA_ONLY check
+
 # ── Variables de entorno para SAM ──────────────────────
 AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
-AWS_REGION="${AWS_REGION:-sa-east-1}"
+AWS_REGION="${AWS_REGION:-$(aws configure get region --profile $AWS_PROFILE 2>/dev/null || echo sa-east-1)}"
 
 echo ""
 echo "📦 SAM build..."
