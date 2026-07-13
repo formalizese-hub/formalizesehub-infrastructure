@@ -1,21 +1,13 @@
 # =====================================================
 # CI/CD — formalizesehub-infrastructure
-# SAM deploy cuando cambia el template o configuración
-# develop → deploy a dev | main → deploy a prod
+# SAM deploy MANUAL — solo via workflow_dispatch
+# No se auto-ejecuta en push porque requiere parámetros
+# sensibles que no deben estar en GitHub
 # =====================================================
 name: SAM Deploy Infrastructure
 
 on:
-  push:
-    branches:
-      - develop
-      - main
-    paths:
-      - "template.yaml"
-      - "samconfig.toml"
-      - "scripts/**"
-
-  # Permite trigger manual desde GitHub UI
+  # Solo ejecución manual desde GitHub UI o CLI
   workflow_dispatch:
     inputs:
       environment:
@@ -46,17 +38,6 @@ jobs:
         with:
           use-installer: true
 
-      - name: Determine environment
-        id: env
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=prod" >> $GITHUB_OUTPUT
-          else
-            echo "environment=dev" >> $GITHUB_OUTPUT
-          fi
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -65,12 +46,23 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: SAM build
-        run: sam build --config-env ${{ steps.env.outputs.environment }}
+        run: sam build
 
       - name: SAM deploy
         run: |
           sam deploy \
-            --config-env ${{ steps.env.outputs.environment }} \
+            --stack-name formalizese-hub \
+            --region sa-east-1 \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
-            --no-progressbar
+            --no-progressbar \
+            --resolve-s3 \
+            --s3-prefix "formalizese-hub-${{ inputs.environment }}" \
+            --parameter-overrides \
+              "Environment=${{ inputs.environment }} \
+               DatabasePassword=${{ secrets.DB_PASSWORD }} \
+               JwtSecret=${{ secrets.JWT_SECRET }} \
+               VpcId=${{ secrets.VPC_ID }} \
+               Subnet1Id=${{ secrets.SUBNET_1_ID }} \
+               Subnet2Id=${{ secrets.SUBNET_2_ID }}"
