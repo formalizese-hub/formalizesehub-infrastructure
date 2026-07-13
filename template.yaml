@@ -57,6 +57,22 @@ Parameters:
     Default: '00000000-0000-0000-0000-000000000001'
     Description: UUID de la organización sistema reservada para el superadmin
 
+  JwtExpirationSeconds:
+    Type: Number
+    Default: 28800
+    Description: Tiempo de expiración del JWT en segundos (default 8 horas)
+
+  BcryptRounds:
+    Type: Number
+    Default: 12
+    Description: Rounds para bcrypt hash (12 dev, 14 prod)
+
+  DbSslRejectUnauthorized:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Si rechazar certificados SSL no autorizados en la conexión a BD (false dev, true prod)
+
 # ─────────────────────────────────────────────────────────────────────────────
 # GLOBALS — aplican a todas las funciones Lambda salvo override explícito
 # Para cambiar runtime/timeout/memoria globalmente, editar aquí
@@ -83,6 +99,9 @@ Globals:
         ENVIRONMENT: !Ref Environment
         JWT_SECRET: !Ref JwtSecret
         SYSTEM_ORG_ID: !Ref SystemOrgId
+        JWT_EXPIRATION_SECONDS: !Ref JwtExpirationSeconds
+        BCRYPT_ROUNDS: !Ref BcryptRounds
+        DB_SSL_REJECT_UNAUTHORIZED: !Ref DbSslRejectUnauthorized
 
 # ─────────────────────────────────────────────────────────────────────────────
 # CONDICIONES
