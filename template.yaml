@@ -176,7 +176,7 @@ Resources:
         - !Ref AWS::NoValue
       PubliclyAccessible: !If [IsProd, false, true]
       BackupRetentionPeriod: !If [IsProd, 7, 1]
-      DeletionProtection: !If [IsProd, true, false]
+      DeletionProtection: false
 
   # ── S3 ──────────────────────────────────────────────────────────────────────
 
@@ -349,7 +349,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-empresas-${Environment}
-      CodeUri: ../formalizesehub-empresa/services/listar-empresas/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -372,7 +372,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-empresas-id-${Environment}
-      CodeUri: ../formalizesehub-empresa/services/listar-empresas-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -395,7 +395,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-empresa-${Environment}
-      CodeUri: ../formalizesehub-empresa/services/crear-empresa/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -418,7 +418,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-empresa-${Environment}
-      CodeUri: ../formalizesehub-empresa/services/actualizar-empresa/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -441,7 +441,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-empresa-${Environment}
-      CodeUri: ../formalizesehub-empresa/services/eliminar-empresa/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -466,7 +466,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-descargas-${Environment}
-      CodeUri: ../formalizesehub-descargas/services/listar-descargas/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -489,7 +489,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-detalle-descarga-${Environment}
-      CodeUri: ../formalizesehub-descargas/services/listar-descargas/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -515,7 +515,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-detalle-factura-${Environment}
-      CodeUri: ../formalizesehub-descargas/services/detalle-factura/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -538,7 +538,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-grupo-retencion-factura-${Environment}
-      CodeUri: ../formalizesehub-descargas/services/actualizar-grupo-retencion-factura/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -561,7 +561,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-validar-excel-${Environment}
-      CodeUri: ../formalizesehub-descargas/services/validar-excel/dist.zip
+      CodeUri: ./placeholder/
       Timeout: 60
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
@@ -589,7 +589,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-facturas-manuales-${Environment}
-      CodeUri: ../formalizesehub-descargas/services/facturas-manuales/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -618,7 +618,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-cuentas-contables-${Environment}
-      CodeUri: ../formalizesehub-cuentas-contables/services/listar-cuentas-contables/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -641,7 +641,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-cuentas-contables-id-${Environment}
-      CodeUri: ../formalizesehub-cuentas-contables/services/listar-cuentas-contables-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -664,7 +664,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-cuenta-contable-${Environment}
-      CodeUri: ../formalizesehub-cuentas-contables/services/crear-cuenta-contable/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -687,7 +687,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-cuenta-contable-${Environment}
-      CodeUri: ../formalizesehub-cuentas-contables/services/actualizar-cuenta-contable/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -710,7 +710,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-cuenta-contable-${Environment}
-      CodeUri: ../formalizesehub-cuentas-contables/services/eliminar-cuenta-contable/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -733,7 +733,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-cargar-masiva-cuentas-${Environment}
-      CodeUri: ../formalizesehub-cuentas-contables/services/cargar-masiva/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -757,7 +757,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-descargar-masiva-cuentas-${Environment}
-      CodeUri: ../formalizesehub-cuentas-contables/services/descargar-masiva/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -782,7 +782,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-cuentas-proveedores-${Environment}
-      CodeUri: ../formalizesehub-parametrizacion/services/listar-cuentas-proveedores/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -805,7 +805,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-cuentas-proveedor-id-${Environment}
-      CodeUri: ../formalizesehub-parametrizacion/services/listar-cuentas-proveedor-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -828,7 +828,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-cuenta-proveedor-${Environment}
-      CodeUri: ../formalizesehub-parametrizacion/services/crear-cuenta-proveedor/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -854,7 +854,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-cuenta-proveedor-${Environment}
-      CodeUri: ../formalizesehub-parametrizacion/services/actualizar-cuenta-proveedor/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -880,7 +880,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-cuenta-proveedor-${Environment}
-      CodeUri: ../formalizesehub-parametrizacion/services/eliminar-cuenta-proveedor/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -903,7 +903,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-cargar-masiva-parametrizacion-${Environment}
-      CodeUri: ../formalizesehub-parametrizacion/services/cargar-masiva/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -931,7 +931,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-descargar-masiva-parametrizacion-${Environment}
-      CodeUri: ../formalizesehub-parametrizacion/services/descargar-masiva/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -956,7 +956,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-proveedores-${Environment}
-      CodeUri: ../formalizesehub-proveedores/services/listar-proveedores/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -979,7 +979,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-proveedores-id-${Environment}
-      CodeUri: ../formalizesehub-proveedores/services/listar-proveedores-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1002,7 +1002,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-proveedor-${Environment}
-      CodeUri: ../formalizesehub-proveedores/services/crear-proveedor/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1025,7 +1025,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-proveedor-${Environment}
-      CodeUri: ../formalizesehub-proveedores/services/actualizar-proveedor/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1048,7 +1048,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-proveedor-${Environment}
-      CodeUri: ../formalizesehub-proveedores/services/eliminar-proveedor/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1071,7 +1071,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-cargar-masiva-proveedores-${Environment}
-      CodeUri: ../formalizesehub-proveedores/services/cargar-masiva/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1096,7 +1096,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-descargar-masiva-proveedores-${Environment}
-      CodeUri: ../formalizesehub-proveedores/services/descargar-masiva/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1126,7 +1126,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-retenciones-${Environment}
-      CodeUri: ../formalizesehub-retenciones/services/listar-retenciones/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1149,7 +1149,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-retenciones-id-${Environment}
-      CodeUri: ../formalizesehub-retenciones/services/listar-retenciones-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1172,7 +1172,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-retencion-${Environment}
-      CodeUri: ../formalizesehub-retenciones/services/crear-retencion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1195,7 +1195,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-retencion-${Environment}
-      CodeUri: ../formalizesehub-retenciones/services/actualizar-retencion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1218,7 +1218,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-retencion-${Environment}
-      CodeUri: ../formalizesehub-retenciones/services/eliminar-retencion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1245,7 +1245,7 @@ Resources:
       Type: AWS::Serverless::Function
       Properties:
         FunctionName: !Sub formalizese-listar-comprobante-siigo-${Environment}
-        CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo/dist.zip
+        CodeUri: ./placeholder/
         Role: !GetAtt LambdaExecutionRole.Arn
         VpcConfig: !If
           - UseVpcCondition
@@ -1268,7 +1268,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-comprobante-siigo-id-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1291,7 +1291,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-comprobante-siigo-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/crear-comprobante-siigo/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1314,7 +1314,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-comprobante-siigo-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/actualizar-comprobante-siigo/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1337,7 +1337,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-comprobante-siigo-${Environment}
-      CodeUri: ../formalizesehub-comprobante-siigo/services/eliminar-comprobante-siigo/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1364,7 +1364,7 @@ Resources:
       Type: AWS::Serverless::Function
       Properties:
         FunctionName: !Sub formalizese-listar-codigo-impuestos-${Environment}
-        CodeUri: ../formalizesehub-codigo-impuestos/services/listar-codigo-impuestos/dist.zip
+        CodeUri: ./placeholder/
         Role: !GetAtt LambdaExecutionRole.Arn
         VpcConfig: !If
           - UseVpcCondition
@@ -1387,7 +1387,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-codigo-impuestos-id-${Environment}
-      CodeUri: ../formalizesehub-codigo-impuestos/services/listar-codigo-impuestos-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1410,7 +1410,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-codigo-impuestos-${Environment}
-      CodeUri: ../formalizesehub-codigo-impuestos/services/crear-codigo-impuestos/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1433,7 +1433,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-codigo-impuestos-${Environment}
-      CodeUri: ../formalizesehub-codigo-impuestos/services/actualizar-codigo-impuestos/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1456,7 +1456,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-codigo-impuestos-${Environment}
-      CodeUri: ../formalizesehub-codigo-impuestos/services/eliminar-codigo-impuestos/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1482,7 +1482,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/crear-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1505,7 +1505,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-redistribuciones-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribuciones/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1528,7 +1528,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-redistribucion-id-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribucion-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1551,7 +1551,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/actualizar-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1574,7 +1574,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/eliminar-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1597,7 +1597,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-generar-txt-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/generar-txt-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1620,7 +1620,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-generar-excel-tns-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/generar-excel-tns-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1645,7 +1645,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-generar-excel-siigo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/generar-excel-siigo-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1670,7 +1670,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-precalculo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/precalculo-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1694,7 +1694,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-facturas-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/listar-facturas-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1721,7 +1721,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-facturas-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/actualizar-facturas-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1744,7 +1744,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-grupo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1768,7 +1768,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-consecutivo-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Handler: index.consecutivoHandler
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
@@ -1793,7 +1793,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-auto-redistribucion-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/auto-redistribucion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1818,7 +1818,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-detectar-consecutivo-${Environment}
-      CodeUri: ../formalizesehub-redistribuciones/services/detectar-consecutivo/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1849,7 +1849,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-invoice-processing-${Environment}
-      CodeUri: ../formalizesehub-invoice-processing/dist/
+      CodeUri: ./placeholder/
       Runtime: nodejs22.x
       Timeout: 900
       MemorySize: 2048
@@ -1879,7 +1879,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-email-invoice-poller-${Environment}
-      CodeUri: ../formalizesehub-email-poller/dist/
+      CodeUri: ./placeholder/
       Runtime: nodejs20.x
       Handler: index.handler
       Timeout: 300
@@ -1917,7 +1917,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-auth-login-${Environment}
-      CodeUri: ../formalizesehub-auth/services/login/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1940,7 +1940,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-auth-mis-clientes-${Environment}
-      CodeUri: ../formalizesehub-auth/services/mis-clientes/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1963,7 +1963,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-roles-${Environment}
-      CodeUri: ../formalizesehub-auth/services/listar-roles/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -1986,7 +1986,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-usuarios-${Environment}
-      CodeUri: ../formalizesehub-auth/services/listar-usuarios/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2009,7 +2009,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-usuario-id-${Environment}
-      CodeUri: ../formalizesehub-auth/services/listar-usuario-id/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2032,7 +2032,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-usuario-${Environment}
-      CodeUri: ../formalizesehub-auth/services/crear-usuario/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2055,7 +2055,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-actualizar-usuario-${Environment}
-      CodeUri: ../formalizesehub-auth/services/actualizar-usuario/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2078,7 +2078,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-eliminar-usuario-${Environment}
-      CodeUri: ../formalizesehub-auth/services/eliminar-usuario/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2101,7 +2101,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-asignar-clientes-usuario-${Environment}
-      CodeUri: ../formalizesehub-auth/services/asignar-clientes-usuario/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2124,7 +2124,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-empresas-usuario-${Environment}
-      CodeUri: ../formalizesehub-auth/services/listar-clientes-usuario/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2147,7 +2147,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-crear-organizacion-${Environment}
-      CodeUri: ../formalizesehub-auth/services/crear-organizacion/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition
@@ -2170,7 +2170,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub formalizese-listar-organizaciones-${Environment}
-      CodeUri: ../formalizesehub-auth/services/listar-organizaciones/dist.zip
+      CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
         - UseVpcCondition

@@ -1,14 +1,19 @@
 #!/bin/bash
 # =====================================================
 # Deploy consolidado - FormalizeSE Hub
-# Uso: ./scripts/deploy.sh [dev|staging|prod] [--force]
+# Uso: ./scripts/deploy.sh [dev|staging|prod] [--force|--infra-only]
+#
+# --force       Build todos los repos + SAM deploy
+# --infra-only  Solo SAM build + deploy (no buildea repos, usa placeholder)
 # =====================================================
 
 set -e
 
 ENV="${1:-dev}"
 FORCE=false
+INFRA_ONLY=false
 [[ "$2" == "--force" ]] && FORCE=true
+[[ "$2" == "--infra-only" ]] && INFRA_ONLY=true
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(dirname "$SCRIPT_DIR")"
@@ -17,7 +22,7 @@ STATE_DIR="$INFRA_DIR/.deploy-state"
 
 if [[ "$ENV" != "dev" && "$ENV" != "staging" && "$ENV" != "prod" && "$ENV" != "new" ]]; then
     echo "❌ Entorno inválido: $ENV"
-    echo "   Uso: ./scripts/deploy.sh [dev|staging|prod|new] [--force]"
+    echo "   Uso: ./scripts/deploy.sh [dev|staging|prod|new] [--force|--infra-only]"
     exit 1
 fi
 
@@ -81,8 +86,18 @@ echo " FormalizeSE Hub — Deploy [$ENV]"
 if [ "$FORCE" = true ]; then
     echo " ⚡ Modo FORCE: se ignoran markers de estado"
 fi
+if [ "$INFRA_ONLY" = true ]; then
+    echo " 🏗️  Modo INFRA-ONLY: solo SAM build + deploy (placeholder code)"
+fi
 echo "=================================================="
 echo ""
+
+if [ "$INFRA_ONLY" = true ]; then
+    echo "⏭️  Saltando build de repos (modo --infra-only)"
+    echo "   Las Lambdas se crean con código placeholder."
+    echo "   GitHub Actions deployará el código real."
+    echo ""
+else
 
 # ── Repos con npm workspaces (build:all) ──────────────
 WORKSPACE_REPOS=(
@@ -200,71 +215,11 @@ else
     done
 fi
 
-# ── Lambdas grandes (>50MB) → deploy via S3 ──────────
+fi  # end INFRA_ONLY check
+
+# ── Variables de entorno para SAM ──────────────────────
 AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
-AWS_REGION="${AWS_REGION:-sa-east-1}"
-DEPLOY_BUCKET="formalizese-invoices-${ENV}-152406482061"
-
-# Mapa: directorio-repo → nombre-lambda (arrays paralelos para compatibilidad bash 3.x)
-LARGE_LAMBDA_REPOS=(
-)
-LARGE_LAMBDA_NAMES=(
-)
-
-echo ""
-echo "☁️  Actualizando lambdas grandes via S3..."
-echo ""
-
-LARGE_DEPLOYED=false
-
-for i in $(seq 0 $((${#LARGE_LAMBDA_REPOS[@]} - 1))); do
-    repo="${LARGE_LAMBDA_REPOS[$i]}"
-    LAMBDA_NAME="${LARGE_LAMBDA_NAMES[$i]}"
-    REPO_PATH="$ROOT_DIR/$repo"
-    ZIP_FILE="$REPO_PATH/dist.zip"
-
-    # Skip si no tiene cambios (y no se hizo build)
-    if ! has_changes "$repo" && [ ! -f "$ZIP_FILE" ]; then
-        echo "  → $repo: sin cambios, saltando"
-        continue
-    fi
-
-    if [ ! -f "$ZIP_FILE" ]; then
-        echo "  ⚠️  $repo: dist.zip no encontrado, saltando"
-        continue
-    fi
-
-    S3_KEY="deploy/${repo}.zip"
-
-    # Comparar hash local vs S3 para detectar cambios binarios
-    LOCAL_HASH=$(md5 -q "$ZIP_FILE" 2>/dev/null || md5sum "$ZIP_FILE" | awk '{print $1}')
-    REMOTE_ETAG=$(aws s3api head-object --bucket "$DEPLOY_BUCKET" --key "$S3_KEY" \
-        --profile "$AWS_PROFILE" --region "$AWS_REGION" \
-        --query 'ETag' --output text 2>/dev/null | tr -d '"')
-
-    if [ "$LOCAL_HASH" = "$REMOTE_ETAG" ]; then
-        echo "  → $repo: zip idéntico en S3, saltando"
-        continue
-    fi
-
-    echo "  → $repo → s3://$DEPLOY_BUCKET/$S3_KEY"
-    aws s3 cp "$ZIP_FILE" "s3://$DEPLOY_BUCKET/$S3_KEY" \
-        --profile "$AWS_PROFILE" --region "$AWS_REGION" 2>&1 \
-        || { echo "  ❌ S3 upload falló para $repo"; exit 1; }
-
-    echo "    Actualizando $LAMBDA_NAME..."
-    aws lambda update-function-code \
-        --function-name "$LAMBDA_NAME" \
-        --s3-bucket "$DEPLOY_BUCKET" \
-        --s3-key "$S3_KEY" \
-        --profile "$AWS_PROFILE" \
-        --region "$AWS_REGION" > /dev/null 2>&1 \
-        || { echo "  ❌ Lambda update falló para $LAMBDA_NAME"; exit 1; }
-
-    echo "    ✅ $LAMBDA_NAME actualizada"
-    LARGE_DEPLOYED=true
-    rm -f "$ZIP_FILE"
-done
+AWS_REGION="${AWS_REGION:-$(aws configure get region --profile $AWS_PROFILE 2>/dev/null || echo sa-east-1)}"
 
 echo ""
 echo "📦 SAM build..."

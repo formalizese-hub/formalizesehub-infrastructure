@@ -1,0 +1,101 @@
+# =====================================================
+# CI/CD — formalizesehub-infrastructure
+# SAM deploy con código placeholder (GitHub Actions deploya código real)
+# develop → deploy infra a dev | main → deploy infra a prod
+# =====================================================
+name: SAM Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "template.yaml"
+      - "placeholder/**"
+      - "samconfig.toml"
+
+  # Permite trigger manual desde GitHub UI
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set AWS config for environment
+        id: aws
+        run: |
+          if [[ "${{ steps.env.outputs.environment }}" == "prod" ]]; then
+            echo "region=us-east-2" >> $GITHUB_OUTPUT
+            echo "db_password=${{ secrets.DB_PASSWORD_PROD }}" >> $GITHUB_OUTPUT
+            echo "jwt_secret=${{ secrets.JWT_SECRET_PROD }}" >> $GITHUB_OUTPUT
+          else
+            echo "region=sa-east-1" >> $GITHUB_OUTPUT
+            echo "db_password=${{ secrets.DB_PASSWORD_DEV }}" >> $GITHUB_OUTPUT
+            echo "jwt_secret=${{ secrets.JWT_SECRET_DEV }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ steps.aws.outputs.region }}
+          role-to-assume: ${{ steps.env.outputs.environment == 'prod' && secrets.PROD_ROLE_ARN || '' }}
+          role-duration-seconds: 3600
+
+      - name: SAM build
+        run: sam build
+
+      - name: SAM deploy
+        run: |
+          sam deploy \
+            --stack-name formalizese-hub \
+            --region ${{ steps.aws.outputs.region }} \
+            --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --no-progressbar \
+            --resolve-s3 \
+            --s3-prefix "formalizese-hub-${{ steps.env.outputs.environment }}" \
+            --parameter-overrides \
+              "Environment=${{ steps.env.outputs.environment }} \
+               UseVpc=false \
+               DatabasePassword=${{ steps.aws.outputs.db_password }} \
+               JwtSecret=${{ steps.aws.outputs.jwt_secret }}"
+
+      - name: Deploy summary
+        run: |
+          echo "✅ Infrastructure deployed to ${{ steps.env.outputs.environment }} (${{ steps.aws.outputs.region }})"
