@@ -1,21 +1,23 @@
 # =====================================================
 # CI/CD — formalizesehub-infrastructure
-# SAM deploy con código placeholder (GitHub Actions deploya código real)
-# develop → deploy infra a dev | main → deploy infra a prod
+# SAM deploy con código placeholder
+#
+# main → deploy automático a prod (us-east-2)
+# workflow_dispatch → deploy manual (dev o prod)
+#
+# NOTA: Dev NO se auto-deploya porque el stack ya existe
+# y se gestiona desde terminal local.
 # =====================================================
 name: SAM Deploy Infrastructure
 
 on:
   push:
     branches:
-      - develop
       - main
     paths:
       - "template.yaml"
       - "placeholder/**"
-      - "samconfig.toml"
 
-  # Permite trigger manual desde GitHub UI
   workflow_dispatch:
     inputs:
       environment:
@@ -48,10 +50,8 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "environment=prod" >> $GITHUB_OUTPUT
           else
-            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "environment=prod" >> $GITHUB_OUTPUT
           fi
 
       - name: Set AWS config for environment
@@ -59,42 +59,58 @@ jobs:
         run: |
           if [[ "${{ steps.env.outputs.environment }}" == "prod" ]]; then
             echo "region=us-east-2" >> $GITHUB_OUTPUT
-            echo "db_password=${{ secrets.DB_PASSWORD_PROD }}" >> $GITHUB_OUTPUT
-            echo "jwt_secret=${{ secrets.JWT_SECRET_PROD }}" >> $GITHUB_OUTPUT
           else
             echo "region=sa-east-1" >> $GITHUB_OUTPUT
-            echo "db_password=${{ secrets.DB_PASSWORD_DEV }}" >> $GITHUB_OUTPUT
-            echo "jwt_secret=${{ secrets.JWT_SECRET_DEV }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Configure AWS credentials
+      # Dev: credenciales directas
+      - name: Configure AWS credentials (dev)
+        if: steps.env.outputs.environment == 'dev'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ steps.aws.outputs.region }}
-          role-to-assume: ${{ steps.env.outputs.environment == 'prod' && secrets.PROD_ROLE_ARN || '' }}
+
+      # Prod: asumir role en la cuenta hija
+      - name: Configure AWS credentials (prod)
+        if: steps.env.outputs.environment == 'prod'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ steps.aws.outputs.region }}
+          role-to-assume: ${{ secrets.PROD_ROLE_ARN }}
           role-duration-seconds: 3600
+          role-skip-session-tagging: true
 
       - name: SAM build
         run: sam build
 
       - name: SAM deploy
         run: |
+          ENV="${{ steps.env.outputs.environment }}"
+          REGION="${{ steps.aws.outputs.region }}"
+
+          if [[ "$ENV" == "prod" ]]; then
+            DB_PASSWORD="${{ secrets.DB_PASSWORD_PROD }}"
+            JWT_SECRET="${{ secrets.JWT_SECRET_PROD }}"
+          else
+            DB_PASSWORD="${{ secrets.DB_PASSWORD_DEV }}"
+            JWT_SECRET="${{ secrets.JWT_SECRET_DEV }}"
+          fi
+
           sam deploy \
             --stack-name formalizese-hub \
-            --region ${{ steps.aws.outputs.region }} \
+            --region "$REGION" \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --no-progressbar \
             --resolve-s3 \
-            --s3-prefix "formalizese-hub-${{ steps.env.outputs.environment }}" \
+            --s3-prefix "formalizese-hub-${ENV}" \
             --parameter-overrides \
-              "Environment=${{ steps.env.outputs.environment }} \
-               UseVpc=false \
-               DatabasePassword=${{ steps.aws.outputs.db_password }} \
-               JwtSecret=${{ steps.aws.outputs.jwt_secret }}"
+              "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET}"
 
       - name: Deploy summary
         run: |
