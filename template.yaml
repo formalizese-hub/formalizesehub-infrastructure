@@ -1855,7 +1855,6 @@ Resources:
       MemorySize: 2048
       Role: !GetAtt LambdaExecutionRole.Arn
       Description: Consume SQS, descarga ZIP de S3, procesa Excel+XML y persiste en PostgreSQL
-      ReservedConcurrentExecutions: 5
       # Sin VPC — necesita salida a internet para descargar XMLs de la DIAN
       # El RDS tiene PubliclyAccessible: true en dev, accesible por endpoint público
       VpcConfig:

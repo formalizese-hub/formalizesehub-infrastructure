@@ -207,10 +207,8 @@ DEPLOY_BUCKET="formalizese-invoices-${ENV}-152406482061"
 
 # Mapa: directorio-repo → nombre-lambda (arrays paralelos para compatibilidad bash 3.x)
 LARGE_LAMBDA_REPOS=(
-    "formalizesehub-invoice-processing"
 )
 LARGE_LAMBDA_NAMES=(
-    "formalizese-invoice-processing-${ENV}"
 )
 
 echo ""
