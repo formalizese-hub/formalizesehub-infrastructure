@@ -1,0 +1,76 @@
+# =====================================================
+# CI/CD — formalizesehub-infrastructure
+# SAM deploy cuando cambia el template o configuración
+# develop → deploy a dev | main → deploy a prod
+# =====================================================
+name: SAM Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+    paths:
+      - "template.yaml"
+      - "samconfig.toml"
+      - "scripts/**"
+
+  # Permite trigger manual desde GitHub UI
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  AWS_REGION: sa-east-1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Determine environment
+        id: env
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: SAM build
+        run: sam build --config-env ${{ steps.env.outputs.environment }}
+
+      - name: SAM deploy
+        run: |
+          sam deploy \
+            --config-env ${{ steps.env.outputs.environment }} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --no-progressbar
