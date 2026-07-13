@@ -95,9 +95,18 @@ jobs:
           if [[ "$ENV" == "prod" ]]; then
             DB_PASSWORD="${{ secrets.DB_PASSWORD_PROD }}"
             JWT_SECRET="${{ secrets.JWT_SECRET_PROD }}"
+            S3_BUCKET="formalizese-sam-deploy-prod-558567543665"
           else
             DB_PASSWORD="${{ secrets.DB_PASSWORD_DEV }}"
             JWT_SECRET="${{ secrets.JWT_SECRET_DEV }}"
+            S3_BUCKET=""
+          fi
+
+          S3_ARGS=""
+          if [[ -n "$S3_BUCKET" ]]; then
+            S3_ARGS="--s3-bucket $S3_BUCKET"
+          else
+            S3_ARGS="--resolve-s3"
           fi
 
           sam deploy \
@@ -107,7 +116,7 @@ jobs:
             --no-confirm-changeset \
             --no-fail-on-empty-changeset \
             --no-progressbar \
-            --resolve-s3 \
+            $S3_ARGS \
             --s3-prefix "formalizese-hub-${ENV}" \
             --parameter-overrides \
               "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET}"
