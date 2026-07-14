@@ -1904,7 +1904,7 @@ Resources:
         Variables:
           GMAIL_SECRET_NAME: "formalizese/email-poller/gmail-credentials"
           GMAIL_USER_EMAIL: !Sub "{{resolve:ssm:/formalizese/${Environment}/gmail-user-email}}"
-          GMAIL_SEARCH_FILTER: !If [IsProd, "to:facturas+*@formalizese.com", "to:facturas-dev+*@formalizese.com"]
+          GMAIL_SEARCH_FILTER: "to:facturas+*@formalizese.com"
           SQS_QUEUE_URL: !Ref InvoiceProcessingQueue
           S3_BUCKET: !Ref InvoicesBucket
       Events:
@@ -1913,13 +1913,13 @@ Resources:
           Properties:
             Schedule: cron(0 15 * * ? *)   # 10:00am Colombia (UTC-5)
             Description: Polling buzón de facturas Gmail - 10am
-            Enabled: true
+            Enabled: !If [IsProd, false, true]  # Prod deshabilitado hasta tener correo separado
         SchedulePollerAfternoon:
           Type: Schedule
           Properties:
             Schedule: cron(0 21 * * ? *)   # 4:00pm Colombia (UTC-5)
             Description: Polling buzón de facturas Gmail - 4pm
-            Enabled: true
+            Enabled: !If [IsProd, false, true]  # Prod deshabilitado hasta tener correo separado
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LAMBDAS: AUTENTICACIÓN Y USUARIOS
