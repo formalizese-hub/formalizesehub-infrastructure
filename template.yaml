@@ -319,6 +319,12 @@ Resources:
         - 'application/octet-stream'
         - 'multipart/form-data'
         - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      # Rate limiting: protege contra brute force y DDoS
+      MethodSettings:
+        - ResourcePath: "/*"
+          HttpMethod: "*"
+          ThrottlingRateLimit: 50
+          ThrottlingBurstLimit: 100
       Cors:
         AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,Authorization,X-Empresa-Id'"
