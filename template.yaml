@@ -2121,13 +2121,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Asigna clientes a un usuario — preparado para fase 2 (solo admin)
+      Description: Asigna empresas a un usuario — preparado para fase 2 (solo admin)
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /usuarios/{id}/clientes
+            Path: /usuarios/{id}/empresas
             Method: PUT
 
   ListarClientesUsuarioFunction:
@@ -2144,13 +2144,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Lista los clientes accesibles de un usuario (asignados + propios) — solo admin
+      Description: Lista los empresas accesibles de un usuario (asignados + propios) — solo admin
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /usuarios/{id}/clientes
+            Path: /usuarios/{id}/empresas
             Method: GET
 
   CrearOrganizacionFunction:
