@@ -115,7 +115,7 @@ jobs:
             --resolve-s3 \
             --s3-prefix "formalizese-hub-${ENV}" \
             --parameter-overrides \
-              "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET}"
+              "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET} BcryptRounds=$([[ "$ENV" == "prod" ]] && echo 14 || echo 12) DbSslRejectUnauthorized=$([[ "$ENV" == "prod" ]] && echo true || echo false)"
 
       - name: Deploy summary
         run: |

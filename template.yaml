@@ -180,7 +180,7 @@ Resources:
         - !Ref AWS::NoValue
       PubliclyAccessible: !If [IsProd, false, true]
       BackupRetentionPeriod: !If [IsProd, 7, 1]
-      DeletionProtection: false
+      DeletionProtection: !If [IsProd, true, false]
 
   # ── S3 ──────────────────────────────────────────────────────────────────────
 
