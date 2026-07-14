@@ -1893,6 +1893,7 @@ Resources:
         Variables:
           GMAIL_SECRET_NAME: "formalizese/email-poller/gmail-credentials"
           GMAIL_USER_EMAIL: !Sub "{{resolve:ssm:/formalizese/${Environment}/gmail-user-email}}"
+          GMAIL_SEARCH_FILTER: !If [IsProd, "to:*pro@formalizese.com", "-to:*pro@formalizese.com"]
           SQS_QUEUE_URL: !Ref InvoiceProcessingQueue
           S3_BUCKET: !Ref InvoicesBucket
       Events:
