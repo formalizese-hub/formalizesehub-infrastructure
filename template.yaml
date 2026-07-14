@@ -82,6 +82,8 @@ Globals:
     Cors:
       AllowMethods: "'GET,POST,PUT,PATCH,DELETE,OPTIONS'"
       AllowHeaders: "'Content-Type,Authorization,X-Empresa-Id'"
+      # NOTA: AllowOrigin '*' solo aplica al preflight (OPTIONS) de API Gateway.
+      # Las Lambdas controlan el origin real via getCorsHeaders() en auth-middleware.
       AllowOrigin: "'*'"
       MaxAge: "'7200'"
   Function:
@@ -101,6 +103,7 @@ Globals:
         SYSTEM_ORG_ID: !Ref SystemOrgId
         JWT_EXPIRATION_SECONDS: !Ref JwtExpirationSeconds
         BCRYPT_ROUNDS: !Ref BcryptRounds
+        ALLOWED_ORIGIN: !If [IsProd, "https://d2id6xh0ylqciw.cloudfront.net", "https://d12h22iq8fydtg.cloudfront.net"]
         DB_SSL_REJECT_UNAUTHORIZED: !Ref DbSslRejectUnauthorized
 
 # ─────────────────────────────────────────────────────────────────────────────
