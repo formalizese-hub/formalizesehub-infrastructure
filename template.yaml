@@ -613,6 +613,7 @@ Resources:
         Variables:
           S3_BUCKET: !Ref InvoicesBucket
           INVOICE_PROCESSING_FUNCTION: !Sub formalizese-invoice-processing-${Environment}
+          INVOICE_PROCESSING_QUEUE_URL: !Ref InvoiceProcessingQueue
       Description: Subida manual de facturas faltantes (ZIP con XML+PDF)
       Events:
         Api:
