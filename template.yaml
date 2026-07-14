@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: FormalizeSEHub - Infraestructura consolidada
+# test: ci dev trigger
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PARÁMETROS
@@ -612,6 +613,7 @@ Resources:
         Variables:
           S3_BUCKET: !Ref InvoicesBucket
           INVOICE_PROCESSING_FUNCTION: !Sub formalizese-invoice-processing-${Environment}
+          INVOICE_PROCESSING_QUEUE_URL: !Ref InvoiceProcessingQueue
       Description: Subida manual de facturas faltantes (ZIP con XML+PDF)
       Events:
         Api:
@@ -1902,7 +1904,7 @@ Resources:
         Variables:
           GMAIL_SECRET_NAME: "formalizese/email-poller/gmail-credentials"
           GMAIL_USER_EMAIL: !Sub "{{resolve:ssm:/formalizese/${Environment}/gmail-user-email}}"
-          GMAIL_SEARCH_FILTER: !If [IsProd, "to:*pro@formalizese.com", "-to:*pro@formalizese.com"]
+          GMAIL_SEARCH_FILTER: !If [IsProd, "to:facturas+*@formalizese.com", "to:facturas-dev+*@formalizese.com"]
           SQS_QUEUE_URL: !Ref InvoiceProcessingQueue
           S3_BUCKET: !Ref InvoicesBucket
       Events:

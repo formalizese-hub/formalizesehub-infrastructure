@@ -2,11 +2,13 @@
 # CI/CD — formalizesehub-infrastructure
 # SAM deploy con código placeholder
 #
-# main → deploy automático a prod (us-east-2)
+# main    → deploy automático a prod (us-east-2)
+# develop → deploy automático a dev (sa-east-1)
 # workflow_dispatch → deploy manual (dev o prod)
 #
-# NOTA: Dev NO se auto-deploya porque el stack ya existe
-# y se gestiona desde terminal local.
+# NOTA: El código de las lambdas NO se sobreescribe porque
+# el placeholder no cambia entre deploys (mismo hash SHA256).
+# CloudFormation solo actualiza recursos con cambios reales.
 # =====================================================
 name: SAM Deploy Infrastructure
 
@@ -14,6 +16,7 @@ on:
   push:
     branches:
       - main
+      - develop
     paths:
       - "template.yaml"
       - "placeholder/**"
@@ -50,6 +53,8 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
           else
             echo "environment=prod" >> $GITHUB_OUTPUT
           fi
