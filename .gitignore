@@ -38,3 +38,10 @@ Thumbs.db
 !database/schema.sql
 !database/queries-ejemplo.sql
 !database/migrations/*.sql
+
+
+# Desarrollo local (generado, no versionar)
+docker-compose.yml
+server.crt
+server.key
+template-local.yaml.bak
