@@ -2268,6 +2268,171 @@ Resources:
         - !Ref AlertsTopic
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PRODUCTOS EMPRESA — Catálogo para homologación (feat/homologacion-productos)
+# ─────────────────────────────────────────────────────────────────────────────
+
+  ListarProductosEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-productos-empresa-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista productos de la empresa con filtros y paginación
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa
+            Method: GET
+
+  ListarProductosEmpresaIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-productos-empresa-id-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Obtiene un producto de la empresa por ID
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/{id}
+            Method: GET
+
+  CrearProductoEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-producto-empresa-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea un nuevo producto en el catálogo de la empresa
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa
+            Method: POST
+
+  ActualizarProductoEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-producto-empresa-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza un producto del catálogo de la empresa
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/{id}
+            Method: PUT
+
+  EliminarProductoEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-producto-empresa-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Elimina (soft delete) un producto del catálogo de la empresa
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/{id}
+            Method: DELETE
+
+  DescargarMasivaProductosEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-descargar-masiva-productos-empresa-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Descarga productos de la empresa como archivo Excel
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/descargar
+            Method: GET
+
+  CargarMasivaProductosEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-cargar-masiva-productos-empresa-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Carga masiva de productos desde Excel (upsert por código)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/cargar
+            Method: POST
+
+# ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
 # ─────────────────────────────────────────────────────────────────────────────
 Outputs:
