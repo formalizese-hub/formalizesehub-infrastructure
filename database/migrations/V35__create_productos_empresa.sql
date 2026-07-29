@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS productos_empresa (
     created_at      TIMESTAMP      NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMP      NOT NULL DEFAULT NOW(),
     deleted_at      TIMESTAMP      DEFAULT NULL,
-    created_by      VARCHAR(36)    DEFAULT NULL,
-    updated_by      VARCHAR(36)    DEFAULT NULL
+    created_by      UUID   DEFAULT NULL,
+    updated_by      UUID    DEFAULT NULL
 );
 
 -- Un código de producto es único por empresa (entre los no eliminados)
