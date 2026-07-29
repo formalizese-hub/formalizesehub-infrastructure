@@ -13,10 +13,10 @@ samconfig.toml
 .env
 .env.*
 !.env.example
-.env.local.json
+env.local.json
 
 docker-compose.yml
-run-migration-local.sh
+database/run-migration-local.sh
 server.crt
 server.key
 template-local.yaml
@@ -45,3 +45,5 @@ Thumbs.db
 !database/schema.sql
 !database/queries-ejemplo.sql
 !database/migrations/*.sql
+database/run-migrations-local.sh
+template-local.yaml.bak
