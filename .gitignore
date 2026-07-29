@@ -13,6 +13,13 @@ samconfig.toml
 .env
 .env.*
 !.env.example
+.env.local.json
+
+.docker-compose.yml
+.run-migration-local.sh
+.server.crt
+.server.key
+.template-local.yaml
 
 # Node
 node_modules/
