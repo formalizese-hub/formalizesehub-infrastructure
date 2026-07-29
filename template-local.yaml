@@ -33,6 +33,10 @@ Globals:
         JWT_EXPIRATION_SECONDS: "28800"
         BCRYPT_ROUNDS: "10"
         ALLOWED_ORIGIN: "*"
+        S3_BUCKET: formalizese-invoices-local
+        INVOICES_BUCKET_NAME: formalizese-invoices-local
+        REDISTRIBUCION_QUEUE_URL: http://localhost:4566/000000000000/redistribucion-local
+        REDISTRIBUCION_EMITIDAS_QUEUE_URL: http://localhost:4566/000000000000/redistribucion-emitidas-local
 
 Resources:
 
@@ -76,6 +80,126 @@ Resources:
             Path: /auth/mis-clientes
             Method: GET
 
+  ListarRolesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/listar-roles/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /roles
+            Method: GET
+
+  ListarUsuariosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/listar-usuarios/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios
+            Method: GET
+
+  ListarUsuarioIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/listar-usuario-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: GET
+
+  CrearUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/crear-usuario/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios
+            Method: POST
+
+  ActualizarUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/actualizar-usuario/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: PUT
+
+  EliminarUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/eliminar-usuario/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}
+            Method: DELETE
+
+  AsignarClientesUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/asignar-clientes-usuario/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}/empresas
+            Method: PUT
+
+  ListarClientesUsuarioFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/listar-clientes-usuario/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /usuarios/{id}/empresas
+            Method: GET
+
+  CrearOrganizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/crear-organizacion/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones
+            Method: POST
+
+  ListarOrganizacionesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-auth/services/listar-organizaciones/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones
+            Method: GET
+
   # ── EMPRESAS ──────────────────────────────────────────────────────────────
   ListarClientesFunction:
     Type: AWS::Serverless::Function
@@ -87,6 +211,18 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /empresas
+            Method: GET
+
+  ListarClientesByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-empresa/services/listar-empresas-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /empresas/{id}
             Method: GET
 
   CrearClienteFunction:
@@ -113,6 +249,18 @@ Resources:
             Path: /empresas/{id}
             Method: PUT
 
+  EliminarClienteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-empresa/services/eliminar-empresa/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /empresas/{id}
+            Method: DELETE
+
   # ── PROVEEDORES ───────────────────────────────────────────────────────────
   ListarProveedoresFunction:
     Type: AWS::Serverless::Function
@@ -124,6 +272,18 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /proveedores
+            Method: GET
+
+  ListarProveedoresByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-proveedores/services/listar-proveedores-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/{id}
             Method: GET
 
   CrearProveedorFunction:
@@ -162,6 +322,32 @@ Resources:
             Path: /proveedores/{id}
             Method: DELETE
 
+  CargarMasivaProveedoresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-proveedores/services/cargar-masiva/dist/
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/cargar-masiva
+            Method: POST
+
+  DescargarMasivaProveedoresFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-proveedores/services/descargar-masiva/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores/descargar
+            Method: GET
+
   # ── CUENTAS CONTABLES ─────────────────────────────────────────────────────
   ListarCuentasContablesFunction:
     Type: AWS::Serverless::Function
@@ -173,6 +359,18 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /cuentas-contables
+            Method: GET
+
+  ListarCuentasContablesByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-cuentas-contables/services/listar-cuentas-contables-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/{id}
             Method: GET
 
   CrearCuentaContableFunction:
@@ -211,6 +409,31 @@ Resources:
             Path: /cuentas-contables/{id}
             Method: DELETE
 
+  CargarMasivaCuentasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-cuentas-contables/services/cargar-masiva/dist/
+      Timeout: 60
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/cargar-masiva
+            Method: POST
+
+  DescargarMasivaCuentasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-cuentas-contables/services/descargar-masiva/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /cuentas-contables/descargar
+            Method: GET
+
   # ── PARAMETRIZACIÓN ───────────────────────────────────────────────────────
   ListarCuentasProveedoresFunction:
     Type: AWS::Serverless::Function
@@ -240,9 +463,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../formalizesehub-parametrizacion/services/crear-cuenta-proveedor/dist/
-      Environment:
-        Variables:
-          REDISTRIBUCION_QUEUE_URL: ""
       Events:
         Api:
           Type: Api
@@ -255,9 +475,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../formalizesehub-parametrizacion/services/actualizar-cuenta-proveedor/dist/
-      Environment:
-        Variables:
-          REDISTRIBUCION_QUEUE_URL: ""
       Events:
         Api:
           Type: Api
@@ -278,6 +495,117 @@ Resources:
             Path: /proveedores-por-cuentas/{id}
             Method: DELETE
 
+  CargarMasivaParametrizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-parametrizacion/services/cargar-masiva/dist/
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas/cargar-masiva
+            Method: POST
+
+  DescargarMasivaParametrizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-parametrizacion/services/descargar-masiva/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /proveedores-por-cuentas/descargar
+            Method: GET
+
+  # ── PRODUCTOS EMPRESA ─────────────────────────────────────────────────────
+  ListarProductosEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos/services/listar-productos-empresa/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa
+            Method: GET
+
+  ListarProductosEmpresaIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos/services/listar-productos-empresa-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/{id}
+            Method: GET
+
+  CrearProductoEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos/services/crear-producto-empresa/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa
+            Method: POST
+
+  ActualizarProductoEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos/services/actualizar-producto-empresa/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/{id}
+            Method: PUT
+
+  EliminarProductoEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos/services/eliminar-producto-empresa/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/{id}
+            Method: DELETE
+
+  DescargarMasivaProductosEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos/services/descargar-masiva-productos-empresa/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/descargar
+            Method: GET
+
+  CargarMasivaProductosEmpresaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos/services/cargar-masiva-productos-empresa/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /productos-empresa/cargar
+            Method: POST
+
   # ── RETENCIONES ───────────────────────────────────────────────────────────
   ListarRetencionesFunction:
     Type: AWS::Serverless::Function
@@ -289,6 +617,18 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /retenciones
+            Method: GET
+
+  ListarRetencionesByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-retenciones/services/listar-retenciones-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /retenciones/{id}
             Method: GET
 
   CrearRetencionFunction:
@@ -340,6 +680,18 @@ Resources:
             Path: /comprobantes-siigo
             Method: GET
 
+  ListarComprobanteSiigoByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-comprobante-siigo/services/listar-comprobante-siigo-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /comprobantes-siigo/{id}
+            Method: GET
+
   CrearComprobanteSiigoFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -389,6 +741,18 @@ Resources:
             Path: /codigos-impuestos
             Method: GET
 
+  ListarCodigosImpuestosByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-codigo-impuestos/services/listar-codigo-impuestos-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /codigos-impuestos/{id}
+            Method: GET
+
   CrearCodigosImpuestosFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -425,6 +789,70 @@ Resources:
             Path: /codigos-impuestos/{id}
             Method: DELETE
 
+
+
+   # ── CONCEPTOS TNS HOMOLOGACION ─────────────────────────────────────────────────────
+  ListarConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-concepto-tns/services/listar-conceptos-tns/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns
+            Method: GET
+
+  ListarConceptoTnsByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-concepto-tns/services/listar-concepto-tns-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns/{id}
+            Method: GET
+
+  CrearConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-concepto-tns/services/crear-concepto-tns/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns
+            Method: POST
+
+  ActualizarConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-concepto-tns/services/actualizar-concepto-tns/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns/{id}
+            Method: PUT
+
+  EliminarConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-concepto-tns/services/eliminar-concepto-tns/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns/{id}
+            Method: DELETE          
+
+
   # ── DESCARGAS ─────────────────────────────────────────────────────────────
   ListarDescargasFunction:
     Type: AWS::Serverless::Function
@@ -442,9 +870,6 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../formalizesehub-descargas/services/detalle-descarga/dist/
-      Environment:
-        Variables:
-          INVOICES_BUCKET_NAME: formalizese-invoices-local
       Events:
         Api:
           Type: Api
@@ -465,22 +890,42 @@ Resources:
             Path: /facturas/{id}
             Method: GET
 
+  ActualizarGrupoRetencionFacturaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-descargas/services/actualizar-grupo-retencion-factura/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /facturas/{id}/grupo-retencion
+            Method: PATCH
+
   ValidarExcelFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../formalizesehub-descargas/services/validar-excel/dist/
       Timeout: 60
       MemorySize: 1024
-      Environment:
-        Variables:
-          REDISTRIBUCION_QUEUE_URL: ""
-          REDISTRIBUCION_EMITIDAS_QUEUE_URL: ""
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /descargas/validar-excel
+            Method: POST
+
+  FacturasManualesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-descargas/services/facturas-manuales/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /descargas/facturas-manuales
             Method: POST
 
   # ── REDISTRIBUCIONES ──────────────────────────────────────────────────────
@@ -494,6 +939,18 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones
+            Method: GET
+
+  ListarRedistribucionByIdFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-redistribuciones/services/listar-redistribucion-id/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/{id}
             Method: GET
 
   CrearRedistribucionFunction:
@@ -563,9 +1020,6 @@ Resources:
     Properties:
       CodeUri: ../formalizesehub-redistribuciones/services/listar-facturas-redistribucion/dist/
       Timeout: 30
-      Environment:
-        Variables:
-          INVOICES_BUCKET_NAME: formalizese-invoices-local
       Events:
         Api:
           Type: Api
@@ -579,9 +1033,6 @@ Resources:
     Properties:
       CodeUri: ../formalizesehub-redistribuciones/services/listar-facturas-redistribucion-emitidas/dist/
       Timeout: 30
-      Environment:
-        Variables:
-          INVOICES_BUCKET_NAME: formalizese-invoices-local
       Events:
         Api:
           Type: Api
@@ -602,6 +1053,21 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /grupo-redistribucion
             Method: POST
+
+  ConsecutivoRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      # Reutiliza el mismo bundle de grupo-redistribucion, con handler distinto
+      CodeUri: ../formalizesehub-redistribuciones/services/grupo-redistribucion/dist/
+      Handler: index.consecutivoHandler
+      Timeout: 10
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /grupo-redistribucion/consecutivo
+            Method: GET
 
   GenerarTxtRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -668,51 +1134,118 @@ Resources:
             Path: /redistribuciones/detectar-consecutivo
             Method: GET
 
-  # ── USUARIOS ──────────────────────────────────────────────────────────────
-  ListarUsuariosFunction:
+  # ── FACTURAS EMITIDAS (trigger SQS) ───────────────────────────────────────
+  # NOTA: sam local start-api NO dispara triggers SQS automáticamente.
+  # Estas funciones quedan registradas para poder invocarlas manualmente con:
+  #   sam local invoke AutoRedistribucionFunction --template template-local.yaml -e evento.json
+  # o mediante un poller propio que lea de LocalStack y llame al handler.
+  AutoRedistribucionFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../formalizesehub-auth/services/listar-usuarios/dist/
+      CodeUri: ../formalizesehub-redistribuciones/services/auto-redistribucion/dist/
+      Timeout: 120
+      MemorySize: 512
+
+  AutoRedistribucionEmitidasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-redistribuciones/services/auto-redistribucion-emitidas/dist/
+      Timeout: 120
+      MemorySize: 512
+
+  # ── HOMOLOGACIÓN DE PRODUCTOS — Fase 2 ──────────────────────────────────────
+  ListarProductosProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-productos-proveedor/services/listar-productos-proveedor/dist/
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /usuarios
+            Path: /productos-proveedor
             Method: GET
 
-  CrearUsuarioFunction:
+  SincronizarProductosProveedorFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../formalizesehub-auth/services/crear-usuario/dist/
+      CodeUri: ../formalizesehub-productos-proveedor/services/sincronizar-productos-proveedor/dist/
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /usuarios
+            Path: /productos-proveedor/sincronizar
             Method: POST
 
-  ActualizarUsuarioFunction:
+  ListarHomologacionesFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../formalizesehub-auth/services/actualizar-usuario/dist/
+      CodeUri: ../formalizesehub-homologacion/services/listar-homologaciones/dist/
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /usuarios/{id}
+            Path: /homologacion-productos
+            Method: GET
+
+  CrearHomologacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-homologacion/services/crear-homologacion/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /homologacion-productos
+            Method: POST
+
+  ActualizarHomologacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-homologacion/services/actualizar-homologacion/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /homologacion-productos/{id}
             Method: PUT
 
-  EliminarUsuarioFunction:
+  EliminarHomologacionFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: ../formalizesehub-auth/services/eliminar-usuario/dist/
+      CodeUri: ../formalizesehub-homologacion/services/eliminar-homologacion/dist/
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /usuarios/{id}
+            Path: /homologacion-productos/{id}
             Method: DELETE
+
+  DescargarMasivaHomologacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-homologacion/services/descargar-masiva-homologacion/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /homologacion-productos/descargar
+            Method: GET
+
+  CargarMasivaHomologacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-homologacion/services/cargar-masiva-homologacion/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /homologacion-productos/cargar
+            Method: POST
