@@ -46,10 +46,4 @@ Thumbs.db
 !database/queries-ejemplo.sql
 !database/migrations/*.sql
 database/run-migrations-local.sh
-
-
-# Desarrollo local (generado, no versionar)
-docker-compose.yml
-server.crt
-server.key
 template-local.yaml.bak
