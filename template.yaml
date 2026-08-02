@@ -587,6 +587,7 @@ Resources:
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
       Events:
         Api:
           Type: Api
@@ -853,6 +854,7 @@ Resources:
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
       Events:
         Api:
           Type: Api
@@ -879,6 +881,7 @@ Resources:
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
       Events:
         Api:
           Type: Api
@@ -1606,7 +1609,7 @@ Resources:
             Method: DELETE
 
 
-  # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
+    # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
 
   CrearRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1845,6 +1848,82 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /facturas-redistribucion
+            Method: GET
+
+  # ── LAMBDAS: FACTURAS EMITIDAS ─────────────────────────────────────────────
+  AutoRedistribucionEmitidasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auto-redistribucion-emitidas-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Procesa facturas emitidas - asigna cuentas y guarda redistribucion (trigger SQS)
+      Timeout: 120
+      MemorySize: 512
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RedistribucionEmitidasQueue.Arn
+            BatchSize: 1
+
+  PrecalculoRedistribucionEmitidasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-precalculo-redistribucion-emitidas-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Calcula preview de redistribucion para facturas emitidas (sin cálculo de retenciones)
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /precalculo-redistribucion-emitidas
+            Method: POST
+
+  ListarFacturasRedistribucionEmitidasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-facturas-redistribucion-emitidas-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista facturas emitidas (grupo_codigo=1) del cliente para contabilizacion
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /facturas-redistribucion-emitidas
             Method: GET
 
   ActualizarFacturasRedistribucionFunction:
