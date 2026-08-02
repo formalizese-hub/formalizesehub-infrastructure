@@ -2027,18 +2027,30 @@ Resources:
           SQS_QUEUE_URL: !Ref InvoiceProcessingQueue
           S3_BUCKET: !Ref InvoicesBucket
       Events:
-        SchedulePollerMorning:
+        SchedulePoller9am:
           Type: Schedule
           Properties:
-            Schedule: cron(0 15 * * ? *)   # 10:00am Colombia (UTC-5)
-            Description: Polling buzón de facturas Gmail - 10am
-            Enabled: !If [IsProd, false, true]  # Prod deshabilitado hasta tener correo separado
-        SchedulePollerAfternoon:
+            Schedule: cron(0 14 * * ? *)   # 9:00am Colombia (UTC-5)
+            Description: Polling buzón de facturas Gmail - 9am
+            Enabled: true
+        SchedulePoller12pm:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 17 * * ? *)   # 12:00pm Colombia (UTC-5)
+            Description: Polling buzón de facturas Gmail - 12pm
+            Enabled: true
+        SchedulePoller4pm:
           Type: Schedule
           Properties:
             Schedule: cron(0 21 * * ? *)   # 4:00pm Colombia (UTC-5)
             Description: Polling buzón de facturas Gmail - 4pm
-            Enabled: !If [IsProd, false, true]  # Prod deshabilitado hasta tener correo separado
+            Enabled: true
+        SchedulePoller7pm:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 0 * * ? *)    # 7:00pm Colombia (UTC-5)
+            Description: Polling buzón de facturas Gmail - 7pm
+            Enabled: true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LAMBDAS: AUTENTICACIÓN Y USUARIOS
