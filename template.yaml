@@ -312,6 +312,16 @@ Resources:
                 Resource: !GetAtt RedistribucionProcessingQueue.Arn
               - Effect: Allow
                 Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt RedistribucionEmitidasQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt RedistribucionEmitidasQueue.Arn
+              - Effect: Allow
+                Action:
                   - logs:CreateLogGroup
                   - logs:CreateLogStream
                   - logs:PutLogEvents
