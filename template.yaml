@@ -244,6 +244,23 @@ Resources:
         deadLetterTargetArn: !GetAtt RedistribucionProcessingDLQ.Arn
         maxReceiveCount: 3
 
+  RedistribucionEmitidasDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-emitidas-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  RedistribucionEmitidasQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-emitidas-${Environment}
+      VisibilityTimeout: 900           # 15 min — >= timeout de AutoRedistribucionEmitidasFunction
+      MessageRetentionPeriod: 345600   # 4 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RedistribucionEmitidasDLQ.Arn
+        maxReceiveCount: 3
+
   # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
   # Permisos mínimos necesarios. Para agregar permisos a una Lambda específica,
   # usar la propiedad Policies directamente en el recurso AWS::Serverless::Function
