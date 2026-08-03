@@ -46,4 +46,3 @@ Thumbs.db
 !database/queries-ejemplo.sql
 !database/migrations/*.sql
 database/run-migrations-local.sh
-template-local.yaml.bak
