@@ -1635,6 +1635,53 @@ Resources:
             Path: /concepto-tns/{id}
             Method: DELETE
 
+  DescargaMasivaConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-descarga-masiva-concepto-tns-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Descarga plantilla Excel de conceptos TNS
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns/descargar
+            Method: GET
+
+  CargaMasivaConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-carga-masiva-concepto-tns-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Carga masiva de conceptos TNS desde Excel
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns/cargar
+            Method: POST
+
 
     # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
 
