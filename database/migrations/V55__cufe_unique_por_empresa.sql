@@ -11,7 +11,8 @@ DROP INDEX IF EXISTS idx_facturas_cufe;
 ALTER TABLE facturas DROP CONSTRAINT IF EXISTS facturas_cufe_key;
 ALTER TABLE facturas DROP CONSTRAINT IF EXISTS facturas_cufe_unique;
 
--- 3. Crear nuevo índice único sobre (cufe, empresa_id) con LOWER para case-insensitive
+-- 3. Crear nuevo índice único sobre (cufe, empresa_id)
+-- Sin WHERE para que ON CONFLICT (cufe, empresa_id) funcione correctamente
+DROP INDEX IF EXISTS uq_facturas_cufe_empresa;
 CREATE UNIQUE INDEX uq_facturas_cufe_empresa
-    ON facturas (LOWER(cufe), empresa_id)
-    WHERE deleted_at IS NULL;
+    ON facturas (cufe, empresa_id);
