@@ -2,13 +2,13 @@
 -- Asociación manual entre producto de proveedor y producto de la empresa
 
 CREATE TABLE IF NOT EXISTS homologacion_productos (
-    id                    VARCHAR(36)    PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    empresa_id            VARCHAR(36)    NOT NULL REFERENCES empresas(id),
-    proveedor_id          VARCHAR(36)    NOT NULL REFERENCES proveedores(id),
-    producto_proveedor_id VARCHAR(36)    NOT NULL REFERENCES productos_proveedor(id),
-    producto_empresa_id   VARCHAR(36)    NULL     REFERENCES productos_empresa(id),
-    concepto_tns_id       VARCHAR(36)    NULL     REFERENCES concepto_tns(id),
-    cuenta_contable_id    VARCHAR(36)    NULL     REFERENCES cuentas_contables(id),
+    id                    VARCHAR(50)    PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    empresa_id            VARCHAR(50)   NOT NULL REFERENCES empresas(id),
+    proveedor_id          VARCHAR(50)   NOT NULL REFERENCES proveedores(id),
+    producto_proveedor_id VARCHAR(50)   NOT NULL REFERENCES productos_proveedor(id),
+    producto_empresa_id   VARCHAR(50)   NULL     REFERENCES productos_empresa(id),
+    concepto_tns_id       VARCHAR(50)   NULL     REFERENCES concepto_tns(id),
+    cuenta_contable_id    VARCHAR(50)   NULL     REFERENCES cuentas_contables(id),
     activo                BOOLEAN        NOT NULL DEFAULT TRUE,
     created_at            TIMESTAMP      NOT NULL DEFAULT NOW(),
     updated_at            TIMESTAMP      NOT NULL DEFAULT NOW(),

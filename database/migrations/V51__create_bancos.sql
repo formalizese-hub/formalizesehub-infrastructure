@@ -1,8 +1,8 @@
 -- V51: Tabla bancos — catálogo de bancos con cuenta contable, se asigna al proveedor
 
 CREATE TABLE IF NOT EXISTS bancos (
-    id                VARCHAR(36)   PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    empresa_id        VARCHAR(36)   NOT NULL REFERENCES empresas(id),
+    id                VARCHAR(50)   PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    empresa_id        VARCHAR(50)   NOT NULL REFERENCES empresas(id),
     codigo            VARCHAR(50)   NOT NULL,
     nombre            VARCHAR(255)  NOT NULL,
     cuenta_contable   VARCHAR(50)   NOT NULL,
