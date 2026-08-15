@@ -960,6 +960,7 @@ Resources:
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
       Events:
         Api:
           Type: Api
