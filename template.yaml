@@ -244,6 +244,23 @@ Resources:
         deadLetterTargetArn: !GetAtt RedistribucionProcessingDLQ.Arn
         maxReceiveCount: 3
 
+  RedistribucionEmitidasDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-emitidas-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  RedistribucionEmitidasQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-redistribucion-emitidas-${Environment}
+      VisibilityTimeout: 900           # 15 min — >= timeout de AutoRedistribucionEmitidasFunction
+      MessageRetentionPeriod: 345600   # 4 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt RedistribucionEmitidasDLQ.Arn
+        maxReceiveCount: 3
+
   # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
   # Permisos mínimos necesarios. Para agregar permisos a una Lambda específica,
   # usar la propiedad Policies directamente en el recurso AWS::Serverless::Function
@@ -293,6 +310,16 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt RedistribucionProcessingQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt RedistribucionEmitidasQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt RedistribucionEmitidasQueue.Arn
               - Effect: Allow
                 Action:
                   - logs:CreateLogGroup
@@ -587,6 +614,7 @@ Resources:
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
       Events:
         Api:
           Type: Api
@@ -853,6 +881,7 @@ Resources:
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
       Events:
         Api:
           Type: Api
@@ -879,6 +908,7 @@ Resources:
       Environment:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
       Events:
         Api:
           Type: Api
@@ -1605,8 +1635,55 @@ Resources:
             Path: /concepto-tns/{id}
             Method: DELETE
 
+  DescargaMasivaConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-descarga-masiva-concepto-tns-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Descarga plantilla Excel de conceptos TNS
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns/descargar
+            Method: GET
 
-  # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
+  CargaMasivaConceptoTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-carga-masiva-concepto-tns-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Carga masiva de conceptos TNS desde Excel
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /concepto-tns/cargar
+            Method: POST
+
+
+    # ── LAMBDAS: REDISTRIBUCIONES ────────────────────────────────────────────────
 
   CrearRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -1845,6 +1922,82 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /facturas-redistribucion
+            Method: GET
+
+  # ── LAMBDAS: FACTURAS EMITIDAS ─────────────────────────────────────────────
+  AutoRedistribucionEmitidasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auto-redistribucion-emitidas-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Procesa facturas emitidas - asigna cuentas y guarda redistribucion (trigger SQS)
+      Timeout: 120
+      MemorySize: 512
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt RedistribucionEmitidasQueue.Arn
+            BatchSize: 1
+
+  PrecalculoRedistribucionEmitidasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-precalculo-redistribucion-emitidas-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Calcula preview de redistribucion para facturas emitidas (sin cálculo de retenciones)
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /precalculo-redistribucion-emitidas
+            Method: POST
+
+  ListarFacturasRedistribucionEmitidasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-facturas-redistribucion-emitidas-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista facturas emitidas (grupo_codigo=1) del cliente para contabilizacion
+      Environment:
+        Variables:
+          INVOICES_BUCKET_NAME: !Ref InvoicesBucket
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /facturas-redistribucion-emitidas
             Method: GET
 
   ActualizarFacturasRedistribucionFunction:
@@ -2332,6 +2485,98 @@ Resources:
             Path: /organizaciones
             Method: GET
 
+  ListarPlanesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-planes-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista los planes disponibles (solo superadmin)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /planes
+            Method: GET
+
+  ActualizarOrganizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-organizacion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza una organizacion (plan, max_empresas, etc.) - solo superadmin
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones/{id}
+            Method: PUT
+
+  RecargarCreditosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-recargar-creditos-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Recarga creditos de documentos para una organizacion - solo superadmin
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones/{id}/recargar
+            Method: POST
+
+  CreditosOrganizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-creditos-organizacion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Resumen de creditos y consumo de una organizacion
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /organizaciones/{id}/creditos
+            Method: GET
+
 # ─────────────────────────────────────────────────────────────────────────────
 # MONITORING: SNS + CLOUDWATCH ALARMS
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2750,6 +2995,194 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /homologacion-productos/cargar
             Method: POST
+
+# ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
+
+  ListarFormasPagoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-formas-pago-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista formas de pago de la empresa
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /formas-pago
+            Method: GET
+
+  CrearFormaPagoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-forma-pago-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea una nueva forma de pago
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /formas-pago
+            Method: POST
+
+  ActualizarFormaPagoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-forma-pago-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza una forma de pago existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /formas-pago/{id}
+            Method: PUT
+
+  EliminarFormaPagoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-forma-pago-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Elimina lógicamente una forma de pago
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /formas-pago/{id}
+            Method: DELETE
+
+# ── LAMBDAS: CAUSACIÓN DETALLE — BANCOS ─────────────────────────────────────
+
+  ListarBancosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-bancos-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista bancos de la empresa
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /bancos
+            Method: GET
+
+  CrearBancoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-crear-banco-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Crea un nuevo banco
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /bancos
+            Method: POST
+
+  ActualizarBancoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-banco-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza un banco existente
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /bancos/{id}
+            Method: PUT
+
+  EliminarBancoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-eliminar-banco-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Elimina lógicamente un banco
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /bancos/{id}
+            Method: DELETE
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
