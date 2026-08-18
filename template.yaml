@@ -225,6 +225,23 @@ Resources:
         deadLetterTargetArn: !GetAtt InvoiceProcessingDLQ.Arn
         maxReceiveCount: 3
 
+  DianSoapDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-dian-soap-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  DianSoapQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-dian-soap-${Environment}
+      VisibilityTimeout: 150           # 2.5 min — must be > Lambda timeout (120s)
+      MessageRetentionPeriod: 1209600  # 14 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DianSoapDLQ.Arn
+        maxReceiveCount: 3
+
 
 
   RedistribucionProcessingDLQ:
@@ -2127,7 +2144,62 @@ Resources:
   #   EventBridge → EmailInvoicePoller → S3 + SQS (InvoiceProcessingQueue)
   #     → InvoiceProcessingFunction (procesa Excel+XML, persiste en DB)
   #
-  # Flujo DIAN (DEPRECADO — código preservado en repos dian-download y dian-download-proxy)
+  # Flujo DIAN SOAP (Phase 1):
+  #   ValidarExcel → DianSoapQueue → DianSoapFunction (Java 21, SOAP+PDF)
+  #     → S3 + InvoiceProcessingQueue → InvoiceProcessingFunction
+  #
+  # Flujo DIAN legacy (DEPRECADO — código preservado en repos dian-download y dian-download-proxy)
+
+  DianSoapFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-dian-soap-${Environment}
+      CodeUri: ./placeholder-dian-soap/
+      Runtime: java21
+      Handler: co.formalizese.diansoap.Handler::handleRequest
+      Timeout: 120
+      MemorySize: 1024
+      Description: Descarga XMLs de DIAN via SOAP, genera PDFs, sube a S3
+      # Sin VPC — necesita salida a internet para llamar al servicio SOAP de la DIAN
+      # El RDS tiene PubliclyAccessible: true en dev, accesible por endpoint público
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:formalizese/${Environment}/cert/*
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt InvoiceProcessingQueue.Arn
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub ${InvoicesBucket.Arn}/*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: arn:aws:logs:*:*:*
+      Environment:
+        Variables:
+          DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
+          DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
+          DB_NAME: !Ref DatabaseName
+          DB_USER: !Ref DatabaseUser
+          DB_PASSWORD: !Ref DatabasePassword
+          S3_BUCKET: !Ref InvoicesBucket
+          SQS_INVOICE_QUEUE_URL: !Ref InvoiceProcessingQueue
+          ENV: !Ref Environment
+          DIAN_WS_URL: "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc"
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt DianSoapQueue.Arn
+            BatchSize: 1
 
   InvoiceProcessingFunction:
     Type: AWS::Serverless::Function
@@ -3212,6 +3284,12 @@ Outputs:
     Value: !Ref InvoiceProcessingQueue
     Export:
       Name: !Sub FormalizeSEHub-InvoiceProcessingQueue-${Environment}
+
+  DianSoapQueueUrl:
+    Description: URL de la cola SQS de DIAN SOAP download
+    Value: !Ref DianSoapQueue
+    Export:
+      Name: !Sub FormalizeSEHub-DianSoapQueue-${Environment}
 
   RedistribucionProcessingQueueUrl:
     Description: URL de la cola SQS de redistribución automática
