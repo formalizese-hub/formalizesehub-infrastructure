@@ -2152,6 +2152,8 @@ Resources:
 
   DianSoapFunction:
     Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
     Properties:
       FunctionName: !Sub formalizese-dian-soap-${Environment}
       CodeUri: ./placeholder-dian-soap/
