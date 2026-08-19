@@ -2200,10 +2200,7 @@ Resources:
           S3_BUCKET: !Ref InvoicesBucket
           SQS_INVOICE_QUEUE_URL: !Ref InvoiceProcessingQueue
           ENV: !Ref Environment
-          DIAN_WS_URL: !If
-            - IsProd
-            - "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc"
-            - "https://vpfe-hab.dian.gov.co/WcfDianCustomerServices.svc"
+          DIAN_WS_URL: "https://vpfe.dian.gov.co/WcfDianCustomerServices.svc"
       Events:
         SQSTrigger:
           Type: SQS
