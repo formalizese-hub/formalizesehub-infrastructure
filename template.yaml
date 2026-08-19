@@ -333,6 +333,10 @@ Resources:
                 Resource: !GetAtt RedistribucionEmitidasQueue.Arn
               - Effect: Allow
                 Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt DianSoapQueue.Arn
+              - Effect: Allow
+                Action:
                   - sqs:ReceiveMessage
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
@@ -632,6 +636,7 @@ Resources:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
           REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
+          DIAN_SOAP_QUEUE_URL: !Ref DianSoapQueue
       Events:
         Api:
           Type: Api
