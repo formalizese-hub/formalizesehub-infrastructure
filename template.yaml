@@ -2144,6 +2144,30 @@ Resources:
             Path: /redistribuciones/detectar-consecutivo
             Method: GET
 
+  RevertirConsecutivoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-revertir-consecutivo-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Revierte la asignación de consecutivos — limpia numero_comprobante y devuelve facturas a estado completado
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/revertir-consecutivo
+            Method: POST
+
   # ── LAMBDAS: PROCESAMIENTO DE FACTURAS ─────────────────────────────────────
   # Flujo actual (Gmail):
   #   EventBridge → EmailInvoicePoller → S3 + SQS (InvoiceProcessingQueue)
