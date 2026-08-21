@@ -308,6 +308,10 @@ Resources:
                 Resource: !Sub ${InvoicesBucket.Arn}/*
               - Effect: Allow
                 Action:
+                  - s3:ListBucket
+                Resource: !GetAtt InvoicesBucket.Arn
+              - Effect: Allow
+                Action:
                   - sqs:SendMessage
                 Resource: !GetAtt InvoiceProcessingQueue.Arn
               - Effect: Allow
