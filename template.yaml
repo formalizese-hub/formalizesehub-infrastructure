@@ -197,13 +197,11 @@ Resources:
         Rules:
           - Id: ExpireManualZips
             Status: Enabled
-            Filter:
-              Prefix: "manual/"
+            Prefix: "manual/"
             ExpirationInDays: !If [IsProd, 90, 30]
           - Id: ExpireEmailZips
             Status: Enabled
-            Filter:
-              Prefix: "emails/"
+            Prefix: "emails/"
             ExpirationInDays: !If [IsProd, 90, 30]
 
   # ── SQS ─────────────────────────────────────────────────────────────────────
