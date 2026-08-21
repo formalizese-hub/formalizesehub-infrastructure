@@ -195,8 +195,15 @@ Resources:
         RestrictPublicBuckets: true
       LifecycleConfiguration:
         Rules:
-          - Id: ExpireOldZips
+          - Id: ExpireManualZips
             Status: Enabled
+            Filter:
+              Prefix: "manual/"
+            ExpirationInDays: !If [IsProd, 90, 30]
+          - Id: ExpireEmailZips
+            Status: Enabled
+            Filter:
+              Prefix: "emails/"
             ExpirationInDays: !If [IsProd, 90, 30]
 
   # ── SQS ─────────────────────────────────────────────────────────────────────
