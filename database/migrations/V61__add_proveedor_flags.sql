@@ -4,10 +4,12 @@
 
 ALTER TABLE proveedores
     ADD COLUMN IF NOT EXISTS omitir_base_minima BOOLEAN NOT NULL DEFAULT false,
-    ADD COLUMN IF NOT EXISTS iva_mayor          BOOLEAN DEFAULT NULL;
+    ADD COLUMN IF NOT EXISTS iva_mayor          BOOLEAN DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS retencion_asumida  BOOLEAN NOT NULL DEFAULT false;
 
 COMMENT ON COLUMN proveedores.omitir_base_minima
     IS 'Si true, no se valida la base mínima UVT para ninguna retención (retefuente, reteIVA, reteICA) de este proveedor';
-
 COMMENT ON COLUMN proveedores.iva_mayor
     IS 'Override de iva_mayor por proveedor. NULL = heredar de empresa';
+COMMENT ON COLUMN proveedores.retencion_asumida
+    IS 'Si true, todas las retenciones (retefuente, reteIVA, reteICA) se marcan como asumidas para este proveedor';
