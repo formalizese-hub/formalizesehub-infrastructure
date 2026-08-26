@@ -2140,10 +2140,11 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Actualiza campos de facturas (historico) en batch y soporta reproceso de emitidas
+      Description: Actualiza campos de facturas (historico) en batch y soporta reproceso de emitidas y recibidas
       Environment:
         Variables:
           REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
+          REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
       Events:
         Api:
           Type: Api
