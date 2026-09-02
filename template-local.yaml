@@ -447,6 +447,18 @@ Resources:
             Path: /proveedores-por-cuentas
             Method: GET
 
+  ListarParametrizacionGlobalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-parametrizacion/services/listar-parametrizacion-global/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion-global
+            Method: GET
+
   ListarCuentasProveedorByIdFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -471,6 +483,18 @@ Resources:
             Path: /proveedores-por-cuentas
             Method: POST
 
+  CrearParametrizacionGlobalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-parametrizacion/services/crear-parametrizacion-global/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion-global
+            Method: POST
+
   ActualizarCuentaProveedorFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -483,6 +507,18 @@ Resources:
             Path: /proveedores-por-cuentas/{id}
             Method: PUT
 
+  ActualizarParametrizacionGlobalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-parametrizacion/services/actualizar-parametrizacion-global/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion-global/{id}
+            Method: PUT
+
   EliminarCuentaProveedorFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -493,6 +529,18 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /proveedores-por-cuentas/{id}
+            Method: DELETE
+
+  EliminarParametrizacionGlobalFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-parametrizacion/services/actualizar-cuenta-proveedor/dist/
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion-global/{id}
             Method: DELETE
 
   CargarMasivaParametrizacionFunction:

@@ -1,8 +1,8 @@
 -- V50: Tabla formas_pago — mapeo entre código de factura XML y código del sistema contable
 
 CREATE TABLE IF NOT EXISTS formas_pago (
-    id              VARCHAR(36)   PRIMARY KEY DEFAULT gen_random_uuid()::text,
-    empresa_id      VARCHAR(36)   NOT NULL REFERENCES empresas(id),
+    id              VARCHAR(50)   PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    empresa_id      VARCHAR(50)   NOT NULL REFERENCES empresas(id),
     codigo_factura  VARCHAR(50)   NOT NULL,
     codigo_sistema  VARCHAR(50)   NOT NULL,
     nombre          VARCHAR(255)  DEFAULT NULL,
