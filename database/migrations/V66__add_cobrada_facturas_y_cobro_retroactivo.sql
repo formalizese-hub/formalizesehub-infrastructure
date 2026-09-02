@@ -16,9 +16,10 @@
 -- NO se marca como agotado; solo se marca agotado cuando queda
 -- exactamente en su tope sin sobregiro pendiente.
 --
--- Cobro retroactivo (Opción C) — fecha de corte: 2026-08-31.
---   * Facturas completadas ANTES del corte  → cobrada = TRUE sin descontar.
---   * Facturas completadas DESDE el corte    → se cobran retroactivamente
+-- Cobro retroactivo (Opción C) — fecha de corte: 2026-09-01.
+--   * TODAS las facturas ANTES del corte (cualquier estado) → cobrada = TRUE
+--     sin descontar. Borrón y cuenta nueva para el histórico.
+--   * Facturas completadas DESDE el corte → se cobran retroactivamente
 --     (descuento FIFO por organización).
 -- =====================================================
 
@@ -41,13 +42,13 @@ CREATE INDEX IF NOT EXISTS idx_facturas_no_cobradas
 -- 'completado' o 'completado con alerta'.
 
 -- ─── 3. Backfill histórico ANTES del corte → marcar cobrada sin descontar ─────
--- Fecha de corte: 2026-08-31 (inclusive hacia adelante se cobra retroactivo).
+-- Fecha de corte: 2026-09-01. TODAS las facturas anteriores al corte se marcan
+-- como cobradas sin importar su estado (borrón y cuenta nueva del histórico).
 UPDATE facturas
 SET cobrada = TRUE,
     cobrada_at = updated_at
 WHERE deleted_at IS NULL
-  AND estado_distribucion IN ('completado', 'completado con alerta')
-  AND updated_at < TIMESTAMPTZ '2026-08-31 00:00:00'
+  AND updated_at < TIMESTAMPTZ '2026-09-01 00:00:00'
   AND cobrada = FALSE;
 
 -- ─── 4. Cobro retroactivo DESDE el corte ──────────────────────────────────────
@@ -70,7 +71,7 @@ BEGIN
         JOIN empresas e ON e.id = f.empresa_id
         WHERE f.deleted_at IS NULL
           AND f.estado_distribucion IN ('completado', 'completado con alerta')
-          AND f.updated_at >= TIMESTAMPTZ '2026-08-31 00:00:00'
+          AND f.updated_at >= TIMESTAMPTZ '2026-09-01 00:00:00'
           AND f.cobrada = FALSE
           AND e.organizacion_id IS NOT NULL
         GROUP BY e.organizacion_id
@@ -88,7 +89,7 @@ BEGIN
               AND e.organizacion_id = org.org_id
               AND f.deleted_at IS NULL
               AND f.estado_distribucion IN ('completado', 'completado con alerta')
-              AND f.updated_at >= TIMESTAMPTZ '2026-08-31 00:00:00'
+              AND f.updated_at >= TIMESTAMPTZ '2026-09-01 00:00:00'
               AND f.cobrada = FALSE;
             CONTINUE;
         END IF;
@@ -148,7 +149,7 @@ BEGIN
           AND e.organizacion_id = org.org_id
           AND f.deleted_at IS NULL
           AND f.estado_distribucion IN ('completado', 'completado con alerta')
-          AND f.updated_at >= TIMESTAMPTZ '2026-08-31 00:00:00'
+          AND f.updated_at >= TIMESTAMPTZ '2026-09-01 00:00:00'
           AND f.cobrada = FALSE;
     END LOOP;
 END $$;
