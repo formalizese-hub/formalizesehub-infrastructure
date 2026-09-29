@@ -2050,6 +2050,31 @@ Resources:
             Path: /redistribuciones/excel-siigo
             Method: POST
 
+  GenerarExcelEpsilonRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-excel-epsilon-redistribucion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Genera archivo Excel epsilon con redistribuciones contables
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/excel-epsilon
+            Method: POST
+
   PrecalculoRedistribucionFunction:
     Type: AWS::Serverless::Function
     Properties:
