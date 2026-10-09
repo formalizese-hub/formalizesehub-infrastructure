@@ -10,8 +10,10 @@
 --                                deduplicación por (session_id, heartbeat_id).
 --
 -- Depende de tablas ya existentes en el esquema:
---   usuarios (V16), organizaciones (V16) y empresas (rename en V26).
--- Todas con PK uuid, referenciadas por las claves foráneas de abajo.
+--   usuarios (V16) y organizaciones (V16) tienen PK uuid.
+--   empresas (rename de `clientes`, V26) tiene PK `character varying` (ids de
+--   aplicación tipo `empresa-<ts>-<rand>`, NO uuid); por eso empresa_id es
+--   varchar aquí, consistente con las otras 15 tablas que la referencian.
 --
 -- Requisitos cubiertos: 5.5, 5.6, 2.8, 6.1
 -- =============================================================================
@@ -23,7 +25,7 @@ CREATE TABLE IF NOT EXISTS user_activity_sessions (
     session_id       text        NOT NULL UNIQUE,          -- id de sesión del cliente
     usuario_id       uuid        NOT NULL REFERENCES usuarios(id),
     organizacion_id  uuid        NOT NULL REFERENCES organizaciones(id),
-    empresa_id       uuid        NOT NULL REFERENCES empresas(id),
+    empresa_id       varchar     NOT NULL REFERENCES empresas(id),  -- empresas.id es varchar
     started_at       timestamptz NOT NULL DEFAULT now(),
     last_activity_at timestamptz NOT NULL DEFAULT now(),
     total_active_ms  bigint      NOT NULL DEFAULT 0 CHECK (total_active_ms >= 0),
@@ -38,7 +40,7 @@ CREATE TABLE IF NOT EXISTS user_activity_heartbeats (
     session_id       text        NOT NULL REFERENCES user_activity_sessions(session_id),
     usuario_id       uuid        NOT NULL REFERENCES usuarios(id),
     organizacion_id  uuid        NOT NULL REFERENCES organizaciones(id),
-    empresa_id       uuid        NOT NULL REFERENCES empresas(id),
+    empresa_id       varchar     NOT NULL REFERENCES empresas(id),  -- empresas.id es varchar
     ruta             text        NOT NULL,                 -- ya truncada a RUTA_MAX_LEN en el servicio
     active_ms        integer     NOT NULL CHECK (active_ms >= 0),  -- tope aplicado en el servicio
     client_timestamp timestamptz NOT NULL,
