@@ -300,6 +300,29 @@ Resources:
         deadLetterTargetArn: !GetAtt CausacionDetalleDLQ.Arn
         maxReceiveCount: 3
 
+  # Cola del flujo ASÍNCRONO de sugerencia de parametrización con IA.
+  # Flujo: SugerirParametrizacionIaFunction (POST) publica el job_id →
+  #        SugerirParametrizacionIaQueue → ProcesarParametrizacionIaJobFunction
+  #        (worker) consume y procesa con IA por lotes.
+  # El mensaje lleva SOLO el job_id (los .xlsx viven en la tabla de jobs en
+  # Postgres), por lo que nunca se roza el límite de 256KB de SQS.
+  SugerirParametrizacionIaDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-sugerir-parametrizacion-ia-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  SugerirParametrizacionIaQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-sugerir-parametrizacion-ia-${Environment}
+      VisibilityTimeout: 960           # 16 min — > timeout del worker (900s) con margen
+      MessageRetentionPeriod: 345600   # 4 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SugerirParametrizacionIaDLQ.Arn
+        maxReceiveCount: 3
+
   # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
   # Permisos mínimos necesarios. Para agregar permisos a una Lambda específica,
   # usar la propiedad Policies directamente en el recurso AWS::Serverless::Function
@@ -363,6 +386,20 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt CausacionDetalleQueue.Arn
+              # Flujo asíncrono de sugerencia de parametrización con IA:
+              #   - SendMessage: lo usa el POST (SugerirParametrizacionIaFunction).
+              #   - Receive/Delete/GetQueueAttributes: los usa el worker
+              #     (ProcesarParametrizacionIaJobFunction) vía Event source mapping.
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt SugerirParametrizacionIaQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt SugerirParametrizacionIaQueue.Arn
               - Effect: Allow
                 Action:
                   - sqs:SendMessage
@@ -3485,6 +3522,8 @@ Resources:
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
           BEDROCK_MAX_TOKENS: '4096'
           IA_LOTE_ITEMS: '25'
+          # Cola del flujo asíncrono: el POST encola SOLO el job_id aquí.
+          SUGERIR_PARAMETRIZACION_IA_QUEUE_URL: !Ref SugerirParametrizacionIaQueue
       Events:
         Api:
           Type: Api
@@ -3492,6 +3531,70 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /parametrizacion/sugerir-ia
             Method: POST
+
+  # Worker del flujo ASÍNCRONO: consume la cola SQS y procesa la sugerencia con
+  # IA SIN el límite de 29s de API Gateway (un balance real ~1029 terceros). Lee
+  # catálogos (SOLO LECTURA) y escribe EXCLUSIVAMENTE la tabla de jobs
+  # (parametrizacion_sugerida_jobs): la parametrización definitiva NO se persiste.
+  # Timeout/MemorySize altos; Bedrock vía inference profile (permiso
+  # bedrock:InvokeModel ya en el LambdaExecutionRole). DLQ configurada en la cola.
+  ProcesarParametrizacionIaJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-procesar-parametrizacion-ia-job-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 900
+      MemorySize: 1024
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Worker SQS que procesa de forma asíncrona el job de sugerencia de parametrización con IA (progreso por lote, solo lectura de catálogos)
+      Environment:
+        Variables:
+          IA_PROVIDER: bedrock
+          BEDROCK_REGION: sa-east-1
+          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+          BEDROCK_MAX_TOKENS: '4096'
+          IA_LOTE_ITEMS: '25'
+          IA_LOTE_TERCEROS: '50'
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SugerirParametrizacionIaQueue.Arn
+            BatchSize: 1
+
+  # Endpoint de polling: devuelve estado/progreso y, cuando el job está 'done',
+  # el resultado. Aislamiento multi-tenant por empresa_id (header X-Empresa-Id).
+  # SOLO LECTURA sobre la tabla de jobs.
+  ObtenerParametrizacionIaJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-obtener-parametrizacion-ia-job-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Devuelve estado/progreso/resultado de un job de sugerencia de parametrización con IA (polling)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia/{job_id}
+            Method: GET
 
 # ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
 
