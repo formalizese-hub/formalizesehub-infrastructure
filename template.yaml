@@ -396,12 +396,18 @@ Resources:
               # por eso se incluye tanto el ARN del foundation-model como el del
               # inference-profile. Requiere que el model access de Anthropic esté
               # aprobado manualmente en la cuenta para esa región.
+              # El modelo se invoca vía inference profile GLOBAL (prefijo "global."),
+              # que enruta a los foundation-models de forma multi-región. Por eso el
+              # ARN del foundation-model que IAM evalúa va SIN región
+              # (arn:aws:bedrock:::foundation-model/...). Se usa comodín de región
+              # (bedrock:*::) para cubrir el enrutamiento del perfil global a
+              # cualquier región. El inference-profile sí lleva región y cuenta.
               - Effect: Allow
                 Action:
                   - bedrock:InvokeModel
                 Resource:
-                  - arn:aws:bedrock:sa-east-1::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0
-                  - !Sub arn:aws:bedrock:sa-east-1:${AWS::AccountId}:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0
+                  - arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0
+                  - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0
 
   # ── API GATEWAY ──────────────────────────────────────────────────────────────
   # Un único API Gateway para todos los servicios.
@@ -3443,6 +3449,48 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /homologacion/sugerir-ia
+            Method: POST
+
+  # Sugiere con IA (AWS Bedrock, Anthropic Claude) la parametrización de
+  # causación de compras POR PROVEEDOR a partir de uno o más Excel de BALANCE DE
+  # COMPROBACIÓN. SOLO LECTURA (SELECT parametrizados); no persiste. Reglas
+  # deterministas por prefijo de cuenta + IA para desambiguar porcentajes de
+  # IVA/retención. El parseo de varios .xlsx y las llamadas al LLM por lotes
+  # pueden tardar, por eso Timeout/MemorySize elevados respecto al default.
+  # BEDROCK_MODEL_ID usa el INFERENCE PROFILE (no el id raw): el id crudo no
+  # soporta invocación on-demand y devuelve ValidationException. El permiso IAM
+  # bedrock:InvokeModel ya está concedido en el LambdaExecutionRole compartido
+  # (ver bloque de política más arriba), igual que para sugerir-homologacion-ia.
+  SugerirParametrizacionIaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-sugerir-parametrizacion-ia-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 120
+      MemorySize: 1024
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Sugiere con IA la parametrización de causación por proveedor desde el balance de comprobación (solo lectura)
+      Environment:
+        Variables:
+          IA_PROVIDER: bedrock
+          BEDROCK_REGION: sa-east-1
+          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+          BEDROCK_MAX_TOKENS: '4096'
+          IA_LOTE_ITEMS: '25'
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia
             Method: POST
 
 # ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
