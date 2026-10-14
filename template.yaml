@@ -2289,6 +2289,37 @@ Resources:
             Path: /causacion-detalle/exportar-tns
             Method: POST
 
+  GenerarTesoreriaTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-tesoreria-tns-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Genera archivo plano TXT posicional para Visual TNS módulo Tesorería (** D* R*)
+      Timeout: 60
+      MemorySize: 256
+      Events:
+        ApiGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /generar-tesoreria-tns/{id}
+            Method: GET
+        ApiPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /generar-tesoreria-tns
+            Method: POST
+
   ActualizarFacturasRedistribucionFunction:
     Type: AWS::Serverless::Function
     Properties:
