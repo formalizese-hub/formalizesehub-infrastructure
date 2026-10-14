@@ -151,7 +151,7 @@ Resources:
   InvoicesBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub formalizese-invoices-${Environment}-${AWS::AccountId}
+      BucketName: !Sub formalizese-invoices-${Environment}-${AWS::AccountId}-${AWS::Region}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -294,7 +294,7 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub formalizese-lambda-role-${Environment}
+      RoleName: !Sub formalizese-lambda-role-${Environment}-${AWS::Region}
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
