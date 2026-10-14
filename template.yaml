@@ -3596,6 +3596,36 @@ Resources:
             Path: /parametrizacion/sugerir-ia/{job_id}
             Method: GET
 
+  # Cancelación por el creador de un job de sugerencia de parametrización con IA.
+  # Cancela un job en 'pending' o 'processing' dejándolo en estado terminal
+  # 'cancelled' (ver migración V89). Es una escritura pequeña sobre la tabla de
+  # jobs (parametrizacion_sugerida_jobs), aislada por empresa_id (header
+  # X-Empresa-Id); el worker aborta de forma limpia entre lotes al detectarlo.
+  # NO requiere permisos SQS ni Bedrock: solo BD, ya cubierta por el role.
+  CancelarParametrizacionIaJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-cancelar-parametrizacion-ia-job-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Cancela un job de sugerencia de parametrización con IA (pending/processing -> cancelled), idempotente y aislado por empresa
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia/{job_id}/cancelar
+            Method: POST
+
 # ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
 
   ListarFormasPagoFunction:
