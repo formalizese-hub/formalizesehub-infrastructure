@@ -15,9 +15,9 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuración
-AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
-AWS_REGION="${AWS_REGION:-sa-east-1}"
-DB_ENDPOINT="${DB_HOST:-formalizese-db-dev.crm4ysgme3wx.sa-east-1.rds.amazonaws.com}"
+AWS_PROFILE="${AWS_PROFILE:-formalizese-dev}"
+AWS_REGION="${AWS_REGION:-us-east-2}"
+DB_ENDPOINT="${DB_HOST:-formalizese-db-dev.cpmcqwiaqdl6.us-east-2.rds.amazonaws.com}"
 DB_PORT="5432"
 DB_NAME="formalizese"
 DB_USER="postgres"

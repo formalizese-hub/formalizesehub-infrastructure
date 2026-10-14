@@ -26,6 +26,15 @@ Parameters:
     NoEcho: true
     MinLength: 8
 
+  DatabaseHost:
+    Type: String
+    Description: Endpoint (host) de PostgreSQL existente (restaurado aparte). La plantilla ya no crea la instancia.
+
+  DatabasePort:
+    Type: String
+    Default: '5432'
+    Description: Puerto de PostgreSQL.
+
   UseVpc:
     Type: String
     Default: 'false'
@@ -94,8 +103,8 @@ Globals:
     Handler: index.handler
     Environment:
       Variables:
-        DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
-        DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
+        DB_HOST: !Ref DatabaseHost
+        DB_PORT: !Ref DatabasePort
         DB_NAME: !Ref DatabaseName
         DB_USER: !Ref DatabaseUser
         DB_PASSWORD: !Ref DatabasePassword
@@ -132,55 +141,10 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
-  RDSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Condition: UseVpcCondition
-    Properties:
-      GroupDescription: Security group para RDS PostgreSQL
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId: !Ref LambdaSecurityGroup
-          Description: Solo acceso desde Lambdas
-
   # ── RDS POSTGRESQL ──────────────────────────────────────────────────────────
-
-  DBSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
-    Condition: UseVpcCondition
-    Properties:
-      DBSubnetGroupDescription: Subnet group para RDS FormalizeSEHub
-      SubnetIds:
-        - !Ref Subnet1Id
-        - !Ref Subnet2Id
-
-  PostgreSQLDatabase:
-    Type: AWS::RDS::DBInstance
-    DeletionPolicy: Snapshot
-    UpdateReplacePolicy: Snapshot
-    Properties:
-      DBInstanceIdentifier: !Sub formalizese-db-${Environment}
-      DBName: !Ref DatabaseName
-      Engine: postgres
-      EngineVersion: '15.17'
-      DBInstanceClass: !If [IsProd, db.t3.small, db.t3.micro]
-      AllocatedStorage: '20'
-      StorageType: gp3
-      MasterUsername: !Ref DatabaseUser
-      MasterUserPassword: !Ref DatabasePassword
-      VPCSecurityGroups: !If
-        - UseVpcCondition
-        - - !Ref RDSSecurityGroup
-        - !Ref AWS::NoValue
-      DBSubnetGroupName: !If
-        - UseVpcCondition
-        - !Ref DBSubnetGroup
-        - !Ref AWS::NoValue
-      PubliclyAccessible: !If [IsProd, false, true]
-      BackupRetentionPeriod: !If [IsProd, 7, 1]
-      DeletionProtection: false
+  # La instancia RDS ya no se crea desde esta plantilla. La base PostgreSQL se
+  # provisiona/restaura aparte y su endpoint se inyecta vía el parámetro
+  # DatabaseHost (ver Parameters). Esto evita que un deploy cree una base vacía.
 
   # ── S3 ──────────────────────────────────────────────────────────────────────
 
@@ -2595,8 +2559,8 @@ Resources:
               Resource: arn:aws:logs:*:*:*
       Environment:
         Variables:
-          DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
-          DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
+          DB_HOST: !Ref DatabaseHost
+          DB_PORT: !Ref DatabasePort
           DB_NAME: !Ref DatabaseName
           DB_USER: !Ref DatabaseUser
           DB_PASSWORD: !Ref DatabasePassword
@@ -3857,7 +3821,7 @@ Outputs:
 
   DatabaseEndpoint:
     Description: Endpoint de PostgreSQL
-    Value: !GetAtt PostgreSQLDatabase.Endpoint.Address
+    Value: !Ref DatabaseHost
     Export:
       Name: !Sub FormalizeSEHub-DB-Endpoint-${Environment}
 

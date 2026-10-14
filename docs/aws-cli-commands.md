@@ -379,7 +379,7 @@ aws rds describe-db-instances \
   --profile formalizese-new --region sa-east-1
 
 # Conectarse a la BD
-psql -h formalizese-db-dev.crm4ysgme3wx.sa-east-1.rds.amazonaws.com \
+psql -h formalizese-db-dev.cpmcqwiaqdl6.us-east-2.rds.amazonaws.com \
      -p 5432 -U postgres -d formalizese
 ```
 
@@ -538,7 +538,7 @@ aws lambda get-function \
 ### Conectarse a la BD
 
 ```bash
-psql -h formalizese-db-dev.crm4ysgme3wx.sa-east-1.rds.amazonaws.com \
+psql -h formalizese-db-dev.cpmcqwiaqdl6.us-east-2.rds.amazonaws.com \
      -p 5432 -U postgres -d formalizese
 ```
 
