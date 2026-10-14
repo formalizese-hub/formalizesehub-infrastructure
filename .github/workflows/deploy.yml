@@ -3,7 +3,7 @@
 # SAM deploy con código placeholder
 #
 # main    → deploy automático a prod (us-east-2)
-# develop → deploy automático a dev (sa-east-1)
+# develop → deploy automático a dev (us-east-2)
 # workflow_dispatch → deploy manual (dev o prod)
 #
 # NOTA: El código de las lambdas NO se sobreescribe porque
@@ -65,7 +65,7 @@ jobs:
           if [[ "${{ steps.env.outputs.environment }}" == "prod" ]]; then
             echo "region=us-east-2" >> $GITHUB_OUTPUT
           else
-            echo "region=sa-east-1" >> $GITHUB_OUTPUT
+            echo "region=us-east-2" >> $GITHUB_OUTPUT
           fi
 
       # Dev: credenciales directas
@@ -100,10 +100,12 @@ jobs:
           if [[ "$ENV" == "prod" ]]; then
             DB_PASSWORD="${{ secrets.DB_PASSWORD_PROD }}"
             JWT_SECRET="${{ secrets.JWT_SECRET_PROD }}"
+            DB_HOST="formalizese-db-prod.cp8iaywawk1k.us-east-2.rds.amazonaws.com"
             S3_BUCKET="formalizese-sam-deploy-prod-558567543665"
           else
             DB_PASSWORD="${{ secrets.DB_PASSWORD_DEV }}"
             JWT_SECRET="${{ secrets.JWT_SECRET_DEV }}"
+            DB_HOST="formalizese-db-dev.cpmcqwiaqdl6.us-east-2.rds.amazonaws.com"
             S3_BUCKET=""
           fi
 
@@ -124,7 +126,7 @@ jobs:
             $S3_ARGS \
             --s3-prefix "formalizese-hub-${ENV}" \
             --parameter-overrides \
-              "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET}"
+              "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET} DatabaseHost=${DB_HOST}"
 
       - name: Deploy summary
         run: |
