@@ -218,7 +218,12 @@ fi
 fi  # end INFRA_ONLY check
 
 # ── Variables de entorno para SAM ──────────────────────
-AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
+# El perfil se deriva del entorno salvo que se exporte AWS_PROFILE explícitamente.
+if [ "$ENV" = "prod" ]; then
+  AWS_PROFILE="${AWS_PROFILE:-formalizese-prod}"
+else
+  AWS_PROFILE="${AWS_PROFILE:-formalizese-dev}"
+fi
 AWS_REGION="${AWS_REGION:-$(aws configure get region --profile $AWS_PROFILE 2>/dev/null || echo sa-east-1)}"
 
 echo ""

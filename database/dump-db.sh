@@ -7,7 +7,7 @@
 set -e
 
 STACK_NAME="formalizese-hub"
-AWS_PROFILE="${AWS_PROFILE:-personal}"
+AWS_PROFILE="${AWS_PROFILE:-formalizese-dev}"
 AWS_REGION="${AWS_REGION:-sa-east-1}"
 OUTPUT_DIR="${1:-.}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

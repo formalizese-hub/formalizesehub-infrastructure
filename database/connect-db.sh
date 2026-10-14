@@ -7,7 +7,7 @@
 
 set -e
 
-AWS_PROFILE="${AWS_PROFILE:-formalizese-new}"
+AWS_PROFILE="${AWS_PROFILE:-formalizese-dev}"
 AWS_REGION="${AWS_REGION:-sa-east-1}"
 
 DB_HOST="formalizese-db-dev.crm4ysgme3wx.sa-east-1.rds.amazonaws.com"
