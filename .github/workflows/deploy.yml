@@ -3,7 +3,7 @@
 # SAM deploy con código placeholder
 #
 # main    → deploy automático a prod (us-east-2)
-# develop → deploy automático a dev (sa-east-1)
+# develop → deploy automático a dev (us-east-2)
 # workflow_dispatch → deploy manual (dev o prod)
 #
 # NOTA: El código de las lambdas NO se sobreescribe porque
@@ -65,7 +65,7 @@ jobs:
           if [[ "${{ steps.env.outputs.environment }}" == "prod" ]]; then
             echo "region=us-east-2" >> $GITHUB_OUTPUT
           else
-            echo "region=sa-east-1" >> $GITHUB_OUTPUT
+            echo "region=us-east-2" >> $GITHUB_OUTPUT
           fi
 
       # Dev: credenciales directas
@@ -100,10 +100,12 @@ jobs:
           if [[ "$ENV" == "prod" ]]; then
             DB_PASSWORD="${{ secrets.DB_PASSWORD_PROD }}"
             JWT_SECRET="${{ secrets.JWT_SECRET_PROD }}"
+            DB_HOST="formalizese-db-prod.cp8iaywawk1k.us-east-2.rds.amazonaws.com"
             S3_BUCKET="formalizese-sam-deploy-prod-558567543665"
           else
             DB_PASSWORD="${{ secrets.DB_PASSWORD_DEV }}"
             JWT_SECRET="${{ secrets.JWT_SECRET_DEV }}"
+            DB_HOST="formalizese-db-dev.cpmcqwiaqdl6.us-east-2.rds.amazonaws.com"
             S3_BUCKET=""
           fi
 
@@ -114,7 +116,9 @@ jobs:
             S3_ARGS="--resolve-s3"
           fi
 
-          sam deploy \
+          # Si el deploy falla, se vuelca el detalle de CloudFormation
+          # (changeset + eventos del stack) para diagnosticar en los logs.
+          if ! sam deploy \
             --stack-name formalizese-hub \
             --region "$REGION" \
             --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
@@ -124,7 +128,24 @@ jobs:
             $S3_ARGS \
             --s3-prefix "formalizese-hub-${ENV}" \
             --parameter-overrides \
-              "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET}"
+              "Environment=${ENV} UseVpc=false DatabasePassword=${DB_PASSWORD} JwtSecret=${JWT_SECRET} DatabaseHost=${DB_HOST}"; then
+            echo "::group::CloudFormation change set detail"
+            CS=$(aws cloudformation list-change-sets --stack-name formalizese-hub --region "$REGION" \
+                 --query 'Summaries[0].ChangeSetName' --output text 2>/dev/null || true)
+            if [[ -n "$CS" && "$CS" != "None" ]]; then
+              aws cloudformation describe-change-set --stack-name formalizese-hub \
+                --change-set-name "$CS" --region "$REGION" \
+                --query '{Status:Status,Reason:StatusReason}' --output json || true
+            fi
+            echo "::endgroup::"
+            echo "::group::CloudFormation stack events (last 50)"
+            aws cloudformation describe-stack-events --stack-name formalizese-hub --region "$REGION" \
+              --max-items 50 \
+              --query 'StackEvents[?ResourceStatusReason!=`null`].{Res:LogicalResourceId,Status:ResourceStatus,Reason:ResourceStatusReason}' \
+              --output table || true
+            echo "::endgroup::"
+            exit 1
+          fi
 
       - name: Deploy summary
         run: |

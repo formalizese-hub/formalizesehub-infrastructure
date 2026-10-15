@@ -1089,6 +1089,39 @@ Resources:
             Path: /facturas-redistribucion-emitidas
             Method: GET
 
+  ListarCausacionDetalleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-redistribuciones/services/listar-causacion-detalle/dist/
+      Timeout: 30
+      Events:
+        ApiList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle
+            Method: GET
+        ApiById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/{id}
+            Method: GET
+
+  GenerarDetalleTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-redistribuciones/services/generar-detalle-tns/dist/
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/{id}/exportar-tns
+            Method: GET
+
   GrupoRedistribucionFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -1198,6 +1231,13 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../formalizesehub-redistribuciones/services/auto-redistribucion-emitidas/dist/
+      Timeout: 120
+      MemorySize: 512
+
+  AutoCausacionDetalleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../formalizesehub-redistribuciones/services/auto-causacion-detalle/dist/
       Timeout: 120
       MemorySize: 512
 

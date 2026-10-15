@@ -47,4 +47,7 @@ Thumbs.db
 !database/migrations/*.sql
 database/run-migrations-local.sh
 
+# Database dumps binarios (pg_dump -Fc) — contienen datos reales, NUNCA commitear
+*.dump
+
 template-local.yaml.bak

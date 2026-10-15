@@ -26,6 +26,15 @@ Parameters:
     NoEcho: true
     MinLength: 8
 
+  DatabaseHost:
+    Type: String
+    Description: Endpoint (host) de PostgreSQL existente (restaurado aparte). La plantilla ya no crea la instancia.
+
+  DatabasePort:
+    Type: String
+    Default: '5432'
+    Description: Puerto de PostgreSQL.
+
   UseVpc:
     Type: String
     Default: 'false'
@@ -94,8 +103,8 @@ Globals:
     Handler: index.handler
     Environment:
       Variables:
-        DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
-        DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
+        DB_HOST: !Ref DatabaseHost
+        DB_PORT: !Ref DatabasePort
         DB_NAME: !Ref DatabaseName
         DB_USER: !Ref DatabaseUser
         DB_PASSWORD: !Ref DatabasePassword
@@ -132,62 +141,17 @@ Resources:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
-  RDSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Condition: UseVpcCondition
-    Properties:
-      GroupDescription: Security group para RDS PostgreSQL
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId: !Ref LambdaSecurityGroup
-          Description: Solo acceso desde Lambdas
-
   # ── RDS POSTGRESQL ──────────────────────────────────────────────────────────
-
-  DBSubnetGroup:
-    Type: AWS::RDS::DBSubnetGroup
-    Condition: UseVpcCondition
-    Properties:
-      DBSubnetGroupDescription: Subnet group para RDS FormalizeSEHub
-      SubnetIds:
-        - !Ref Subnet1Id
-        - !Ref Subnet2Id
-
-  PostgreSQLDatabase:
-    Type: AWS::RDS::DBInstance
-    DeletionPolicy: Snapshot
-    UpdateReplacePolicy: Snapshot
-    Properties:
-      DBInstanceIdentifier: !Sub formalizese-db-${Environment}
-      DBName: !Ref DatabaseName
-      Engine: postgres
-      EngineVersion: '15.17'
-      DBInstanceClass: !If [IsProd, db.t3.small, db.t3.micro]
-      AllocatedStorage: '20'
-      StorageType: gp3
-      MasterUsername: !Ref DatabaseUser
-      MasterUserPassword: !Ref DatabasePassword
-      VPCSecurityGroups: !If
-        - UseVpcCondition
-        - - !Ref RDSSecurityGroup
-        - !Ref AWS::NoValue
-      DBSubnetGroupName: !If
-        - UseVpcCondition
-        - !Ref DBSubnetGroup
-        - !Ref AWS::NoValue
-      PubliclyAccessible: !If [IsProd, false, true]
-      BackupRetentionPeriod: !If [IsProd, 7, 1]
-      DeletionProtection: false
+  # La instancia RDS ya no se crea desde esta plantilla. La base PostgreSQL se
+  # provisiona/restaura aparte y su endpoint se inyecta vía el parámetro
+  # DatabaseHost (ver Parameters). Esto evita que un deploy cree una base vacía.
 
   # ── S3 ──────────────────────────────────────────────────────────────────────
 
   InvoicesBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub formalizese-invoices-${Environment}-${AWS::AccountId}
+      BucketName: !Sub formalizese-invoices-${Environment}-${AWS::AccountId}-${AWS::Region}
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -283,6 +247,46 @@ Resources:
         deadLetterTargetArn: !GetAtt RedistribucionEmitidasDLQ.Arn
         maxReceiveCount: 3
 
+  CausacionDetalleDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-causacion-detalle-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  CausacionDetalleQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-causacion-detalle-${Environment}
+      VisibilityTimeout: 900           # 15 min — >= timeout de AutoCausacionDetalleFunction
+      MessageRetentionPeriod: 345600   # 4 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt CausacionDetalleDLQ.Arn
+        maxReceiveCount: 3
+
+  # Cola del flujo ASÍNCRONO de sugerencia de parametrización con IA.
+  # Flujo: SugerirParametrizacionIaFunction (POST) publica el job_id →
+  #        SugerirParametrizacionIaQueue → ProcesarParametrizacionIaJobFunction
+  #        (worker) consume y procesa con IA por lotes.
+  # El mensaje lleva SOLO el job_id (los .xlsx viven en la tabla de jobs en
+  # Postgres), por lo que nunca se roza el límite de 256KB de SQS.
+  SugerirParametrizacionIaDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-sugerir-parametrizacion-ia-dlq-${Environment}
+      MessageRetentionPeriod: 1209600  # 14 días
+
+  SugerirParametrizacionIaQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub formalizese-sugerir-parametrizacion-ia-${Environment}
+      VisibilityTimeout: 960           # 16 min — > timeout del worker (900s) con margen
+      MessageRetentionPeriod: 345600   # 4 días
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt SugerirParametrizacionIaDLQ.Arn
+        maxReceiveCount: 3
+
   # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
   # Permisos mínimos necesarios. Para agregar permisos a una Lambda específica,
   # usar la propiedad Policies directamente en el recurso AWS::Serverless::Function
@@ -290,7 +294,7 @@ Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub formalizese-lambda-role-${Environment}
+      RoleName: !Sub formalizese-lambda-role-${Environment}-${AWS::Region}
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -339,6 +343,30 @@ Resources:
               - Effect: Allow
                 Action:
                   - sqs:SendMessage
+                Resource: !GetAtt CausacionDetalleQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt CausacionDetalleQueue.Arn
+              # Flujo asíncrono de sugerencia de parametrización con IA:
+              #   - SendMessage: lo usa el POST (SugerirParametrizacionIaFunction).
+              #   - Receive/Delete/GetQueueAttributes: los usa el worker
+              #     (ProcesarParametrizacionIaJobFunction) vía Event source mapping.
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
+                Resource: !GetAtt SugerirParametrizacionIaQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                Resource: !GetAtt SugerirParametrizacionIaQueue.Arn
+              - Effect: Allow
+                Action:
+                  - sqs:SendMessage
                 Resource: !GetAtt RedistribucionEmitidasQueue.Arn
               - Effect: Allow
                 Action:
@@ -364,6 +392,23 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:formalizese-invoice-processing-${Environment}
+              # Permite al servicio sugerir-homologacion-ia invocar el modelo Anthropic
+              # Claude en Bedrock (región sa-east-1). Se invoca vía inference profile,
+              # por eso se incluye tanto el ARN del foundation-model como el del
+              # inference-profile. Requiere que el model access de Anthropic esté
+              # aprobado manualmente en la cuenta para esa región.
+              # El modelo se invoca vía inference profile GLOBAL (prefijo "global."),
+              # que enruta a los foundation-models de forma multi-región. Por eso el
+              # ARN del foundation-model que IAM evalúa va SIN región
+              # (arn:aws:bedrock:::foundation-model/...). Se usa comodín de región
+              # (bedrock:*::) para cubrir el enrutamiento del perfil global a
+              # cualquier región. El inference-profile sí lleva región y cuenta.
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                Resource:
+                  - arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0
+                  - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0
 
   # ── API GATEWAY ──────────────────────────────────────────────────────────────
   # Un único API Gateway para todos los servicios.
@@ -527,6 +572,29 @@ Resources:
             Path: /empresas/{id}
             Method: DELETE
 
+  ListarGeografiaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-geografia-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista departamentos y municipios (catálogo DANE) desde la BD
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /geografia
+            Method: GET
+
   # ── LAMBDAS: DESCARGAS ─────────────────────────────────────────────────────
 
   ListarDescargasFunction:
@@ -645,6 +713,7 @@ Resources:
         Variables:
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
           REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
           DIAN_SOAP_QUEUE_URL: !Ref DianSoapQueue
       Events:
         Api:
@@ -1999,6 +2068,31 @@ Resources:
             Path: /redistribuciones/excel-siigo
             Method: POST
 
+  GenerarExcelEpsilonRedistribucionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-excel-epsilon-redistribucion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Genera archivo Excel epsilon con redistribuciones contables
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /redistribuciones/excel-epsilon
+            Method: POST
+
   PrecalculoRedistribucionFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -2126,6 +2220,124 @@ Resources:
             Path: /facturas-redistribucion-emitidas
             Method: GET
 
+  # ── REDISTRIBUCIÓN DETALLE (Inventario TNS) ────────────────────────────────
+
+  ListarCausacionDetalleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-causacion-detalle-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista causaciones a detalle (inventario) y retorna detalle por ID con ítems
+      Timeout: 30
+      Events:
+        ApiList:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle
+            Method: GET
+        ApiById:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/{id}
+            Method: GET
+
+  ActualizarCausacionDetalleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-actualizar-causacion-detalle-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Actualiza el cabezal editable de una causación a detalle
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/{id}
+            Method: PUT
+
+  GenerarDetalleTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-detalle-tns-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Genera archivo Excel TNS (tipo 1 + tipo 3) desde causación a detalle aprobada
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/{id}/exportar-tns
+            Method: GET
+        ApiBatch:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/exportar-tns
+            Method: POST
+
+  GenerarTesoreriaTnsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-generar-tesoreria-tns-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Genera archivo plano TXT posicional para Visual TNS módulo Tesorería (** D* R*)
+      Timeout: 60
+      MemorySize: 256
+      Events:
+        ApiGet:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /generar-tesoreria-tns/{id}
+            Method: GET
+        ApiPost:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /generar-tesoreria-tns
+            Method: POST
+
   ActualizarFacturasRedistribucionFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -2145,6 +2357,7 @@ Resources:
         Variables:
           REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
@@ -2225,6 +2438,29 @@ Resources:
           Properties:
             Queue: !GetAtt RedistribucionProcessingQueue.Arn
             BatchSize: 1
+
+  AutoCausacionDetalleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-auto-causacion-detalle-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Procesa lote de facturas por detalle (inventario) - genera causación a detalle (trigger SQS)
+      Timeout: 120
+      MemorySize: 512
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt CausacionDetalleQueue.Arn
             BatchSize: 1
 
   DetectarConsecutivoFunction:
@@ -2323,8 +2559,8 @@ Resources:
               Resource: arn:aws:logs:*:*:*
       Environment:
         Variables:
-          DB_HOST: !GetAtt PostgreSQLDatabase.Endpoint.Address
-          DB_PORT: !GetAtt PostgreSQLDatabase.Endpoint.Port
+          DB_HOST: !Ref DatabaseHost
+          DB_PORT: !Ref DatabasePort
           DB_NAME: !Ref DatabaseName
           DB_USER: !Ref DatabaseUser
           DB_PASSWORD: !Ref DatabasePassword
@@ -2358,6 +2594,7 @@ Resources:
         Variables:
           S3_BUCKET_NAME: !Ref InvoicesBucket
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         SQSTrigger:
           Type: SQS
@@ -3207,6 +3444,183 @@ Resources:
             Path: /homologacion-productos/cargar
             Method: POST
 
+  # Sugiere con IA (AWS Bedrock, Anthropic Claude) la homologación de los
+  # productos de un proveedor contra el catálogo de la empresa activa. SOLO
+  # LECTURA (SELECT parametrizados); no persiste. Las llamadas al LLM por lotes
+  # pueden tardar, por eso Timeout/MemorySize elevados respecto al default.
+  # BEDROCK_MODEL_ID usa el INFERENCE PROFILE (no el id raw): el id crudo no
+  # soporta invocación on-demand y devuelve ValidationException.
+  SugerirHomologacionIaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-sugerir-homologacion-ia-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 120
+      MemorySize: 1024
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Sugiere con IA la homologación de productos de un proveedor (solo lectura)
+      Environment:
+        Variables:
+          IA_PROVIDER: bedrock
+          BEDROCK_REGION: sa-east-1
+          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+          BEDROCK_MAX_TOKENS: '4096'
+          HOMOLOGACION_TRGM_K: '15'
+          IA_LOTE_PRODUCTOS: '25'
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /homologacion/sugerir-ia
+            Method: POST
+
+  # Sugiere con IA (AWS Bedrock, Anthropic Claude) la parametrización de
+  # causación de compras POR PROVEEDOR a partir de uno o más Excel de BALANCE DE
+  # COMPROBACIÓN. SOLO LECTURA (SELECT parametrizados); no persiste. Reglas
+  # deterministas por prefijo de cuenta + IA para desambiguar porcentajes de
+  # IVA/retención. El parseo de varios .xlsx y las llamadas al LLM por lotes
+  # pueden tardar, por eso Timeout/MemorySize elevados respecto al default.
+  # BEDROCK_MODEL_ID usa el INFERENCE PROFILE (no el id raw): el id crudo no
+  # soporta invocación on-demand y devuelve ValidationException. El permiso IAM
+  # bedrock:InvokeModel ya está concedido en el LambdaExecutionRole compartido
+  # (ver bloque de política más arriba), igual que para sugerir-homologacion-ia.
+  SugerirParametrizacionIaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-sugerir-parametrizacion-ia-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 120
+      MemorySize: 1024
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Sugiere con IA la parametrización de causación por proveedor desde el balance de comprobación (solo lectura)
+      Environment:
+        Variables:
+          IA_PROVIDER: bedrock
+          BEDROCK_REGION: sa-east-1
+          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+          BEDROCK_MAX_TOKENS: '4096'
+          IA_LOTE_ITEMS: '25'
+          # Cola del flujo asíncrono: el POST encola SOLO el job_id aquí.
+          SUGERIR_PARAMETRIZACION_IA_QUEUE_URL: !Ref SugerirParametrizacionIaQueue
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia
+            Method: POST
+
+  # Worker del flujo ASÍNCRONO: consume la cola SQS y procesa la sugerencia con
+  # IA SIN el límite de 29s de API Gateway (un balance real ~1029 terceros). Lee
+  # catálogos (SOLO LECTURA) y escribe EXCLUSIVAMENTE la tabla de jobs
+  # (parametrizacion_sugerida_jobs): la parametrización definitiva NO se persiste.
+  # Timeout/MemorySize altos; Bedrock vía inference profile (permiso
+  # bedrock:InvokeModel ya en el LambdaExecutionRole). DLQ configurada en la cola.
+  ProcesarParametrizacionIaJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-procesar-parametrizacion-ia-job-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 900
+      MemorySize: 1024
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Worker SQS que procesa de forma asíncrona el job de sugerencia de parametrización con IA (progreso por lote, solo lectura de catálogos)
+      Environment:
+        Variables:
+          IA_PROVIDER: bedrock
+          BEDROCK_REGION: sa-east-1
+          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
+          BEDROCK_MAX_TOKENS: '4096'
+          IA_LOTE_ITEMS: '25'
+          IA_LOTE_TERCEROS: '50'
+      Events:
+        SQSTrigger:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt SugerirParametrizacionIaQueue.Arn
+            BatchSize: 1
+
+  # Endpoint de polling: devuelve estado/progreso y, cuando el job está 'done',
+  # el resultado. Aislamiento multi-tenant por empresa_id (header X-Empresa-Id).
+  # SOLO LECTURA sobre la tabla de jobs.
+  ObtenerParametrizacionIaJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-obtener-parametrizacion-ia-job-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Devuelve estado/progreso/resultado de un job de sugerencia de parametrización con IA (polling)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia/{job_id}
+            Method: GET
+
+  # Cancelación por el creador de un job de sugerencia de parametrización con IA.
+  # Cancela un job en 'pending' o 'processing' dejándolo en estado terminal
+  # 'cancelled' (ver migración V89). Es una escritura pequeña sobre la tabla de
+  # jobs (parametrizacion_sugerida_jobs), aislada por empresa_id (header
+  # X-Empresa-Id); el worker aborta de forma limpia entre lotes al detectarlo.
+  # NO requiere permisos SQS ni Bedrock: solo BD, ya cubierta por el role.
+  CancelarParametrizacionIaJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-cancelar-parametrizacion-ia-job-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Cancela un job de sugerencia de parametrización con IA (pending/processing -> cancelled), idempotente y aislado por empresa
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia/{job_id}/cancelar
+            Method: POST
+
 # ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
 
   ListarFormasPagoFunction:
@@ -3301,12 +3715,12 @@ Resources:
             Path: /formas-pago/{id}
             Method: DELETE
 
-# ── LAMBDAS: CAUSACIÓN DETALLE — BANCOS ─────────────────────────────────────
+# ── LAMBDAS: CAUSACIÓN DETALLE — MÉTODOS DE PAGO ────────────────────────────
 
-  ListarBancosFunction:
+  ListarMetodoPagoFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-listar-bancos-${Environment}
+      FunctionName: !Sub formalizese-listar-metodo-pago-${Environment}
       CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
@@ -3317,19 +3731,19 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Lista bancos de la empresa
+      Description: Lista métodos de pago de la empresa
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /bancos
+            Path: /metodo-pago
             Method: GET
 
-  CrearBancoFunction:
+  CrearMetodoPagoFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-crear-banco-${Environment}
+      FunctionName: !Sub formalizese-crear-metodo-pago-${Environment}
       CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
@@ -3340,19 +3754,19 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Crea un nuevo banco
+      Description: Crea un nuevo método de pago
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /bancos
+            Path: /metodo-pago
             Method: POST
 
-  ActualizarBancoFunction:
+  ActualizarMetodoPagoFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-actualizar-banco-${Environment}
+      FunctionName: !Sub formalizese-actualizar-metodo-pago-${Environment}
       CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
@@ -3363,19 +3777,19 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Actualiza un banco existente
+      Description: Actualiza un método de pago existente
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /bancos/{id}
+            Path: /metodo-pago/{id}
             Method: PUT
 
-  EliminarBancoFunction:
+  EliminarMetodoPagoFunction:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: !Sub formalizese-eliminar-banco-${Environment}
+      FunctionName: !Sub formalizese-eliminar-metodo-pago-${Environment}
       CodeUri: ./placeholder/
       Role: !GetAtt LambdaExecutionRole.Arn
       VpcConfig: !If
@@ -3386,13 +3800,13 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Elimina lógicamente un banco
+      Description: Elimina lógicamente un método de pago
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
-            Path: /bancos/{id}
+            Path: /metodo-pago/{id}
             Method: DELETE
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -3407,7 +3821,7 @@ Outputs:
 
   DatabaseEndpoint:
     Description: Endpoint de PostgreSQL
-    Value: !GetAtt PostgreSQLDatabase.Endpoint.Address
+    Value: !Ref DatabaseHost
     Export:
       Name: !Sub FormalizeSEHub-DB-Endpoint-${Environment}
 
@@ -3440,3 +3854,15 @@ Outputs:
     Value: !GetAtt RedistribucionProcessingQueue.Arn
     Export:
       Name: !Sub FormalizeSEHub-RedistribucionProcessingQueueArn-${Environment}
+
+  CausacionDetalleQueueUrl:
+    Description: URL de la cola SQS de causación a detalle (inventario)
+    Value: !Ref CausacionDetalleQueue
+    Export:
+      Name: !Sub FormalizeSEHub-CausacionDetalleQueueUrl-${Environment}
+
+  CausacionDetalleQueueArn:
+    Description: ARN de la cola SQS de causación a detalle (inventario)
+    Value: !GetAtt CausacionDetalleQueue.Arn
+    Export:
+      Name: !Sub FormalizeSEHub-CausacionDetalleQueueArn-${Environment}
