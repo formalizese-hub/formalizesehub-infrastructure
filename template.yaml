@@ -3270,6 +3270,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Crea una homologación producto_proveedor → producto_empresa
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
@@ -3293,6 +3296,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Actualiza el producto_empresa_id de una homologación
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
