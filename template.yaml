@@ -2017,6 +2017,12 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/txt
             Method: POST
+        ApiCausacionDetalle:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/exportar-txt
+            Method: POST
 
   GenerarExcelTnsRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -2268,6 +2274,9 @@ Resources:
         - !Ref AWS::NoValue
       Description: Actualiza el cabezal editable de una causación a detalle
       Timeout: 30
+      Environment:
+        Variables:
+          AUTO_CAUSACION_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
@@ -2331,6 +2340,12 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /generar-tesoreria-tns/{id}
             Method: GET
+        ApiCausacionDetalle:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/{id}/exportar-tesoreria-tns
+            Method: POST
         ApiPost:
           Type: Api
           Properties:
