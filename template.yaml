@@ -3491,7 +3491,7 @@ Resources:
       Environment:
         Variables:
           IA_PROVIDER: bedrock
-          BEDROCK_REGION: sa-east-1
+          BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
           BEDROCK_MAX_TOKENS: '4096'
           HOMOLOGACION_TRGM_K: '15'
@@ -3534,7 +3534,7 @@ Resources:
       Environment:
         Variables:
           IA_PROVIDER: bedrock
-          BEDROCK_REGION: sa-east-1
+          BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
           BEDROCK_MAX_TOKENS: '4096'
           IA_LOTE_ITEMS: '25'
@@ -3574,11 +3574,15 @@ Resources:
       Environment:
         Variables:
           IA_PROVIDER: bedrock
-          BEDROCK_REGION: sa-east-1
+          BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
           BEDROCK_MAX_TOKENS: '4096'
           IA_LOTE_ITEMS: '25'
           IA_LOTE_TERCEROS: '50'
+          # Modo de sugerencia del worker: 'ia_completa' activa el pipeline de IA
+          # completa (el único consumidor de IA_MODO es el orquestador, que corre
+          # aquí en el worker; el POST solo encola el job).
+          IA_MODO: ia_completa
       Events:
         SQSTrigger:
           Type: SQS
