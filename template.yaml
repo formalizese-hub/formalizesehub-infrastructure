@@ -3586,8 +3586,10 @@ Resources:
           IA_LOTE_TERCEROS: '8'
           # Concurrencia de llamadas a la IA (lotes en paralelo). Acota cuántas
           # peticiones a Bedrock corren a la vez: acelera balances grandes para
-          # caber en el timeout del worker (900s) sin agotar el throttle.
-          IA_CONCURRENCIA: '4'
+          # caber en el timeout del worker (900s) sin agotar el throttle. Se sube
+          # a 11 para que balances grandes (1000+ terceros) terminen dentro de los
+          # 900s (con 4 el job de 1029 se agotaba por timeout).
+          IA_CONCURRENCIA: '11'
           # Modo de sugerencia del worker: 'ia_completa' activa el pipeline de IA
           # completa (el único consumidor de IA_MODO es el orquestador, que corre
           # aquí en el worker; el POST solo encola el job).
