@@ -3576,9 +3576,18 @@ Resources:
           IA_PROVIDER: bedrock
           BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
-          BEDROCK_MAX_TOKENS: '4096'
+          # Salida del modelo: 8192 tokens para que el JSON de un lote de
+          # proveedores quepa completo (con 4096 se truncaba => "salida inválida").
+          BEDROCK_MAX_TOKENS: '8192'
           IA_LOTE_ITEMS: '25'
-          IA_LOTE_TERCEROS: '50'
+          # Lote de proveedores por llamada a la IA. Lotes PEQUEÑOS (8) para que
+          # el prompt y la salida JSON de cada llamada quepan en la ventana del
+          # modelo y validen. Balances grandes se procesan en varios lotes.
+          IA_LOTE_TERCEROS: '8'
+          # Concurrencia de llamadas a la IA (lotes en paralelo). Acota cuántas
+          # peticiones a Bedrock corren a la vez: acelera balances grandes para
+          # caber en el timeout del worker (900s) sin agotar el throttle.
+          IA_CONCURRENCIA: '4'
           # Modo de sugerencia del worker: 'ia_completa' activa el pipeline de IA
           # completa (el único consumidor de IA_MODO es el orquestador, que corre
           # aquí en el worker; el POST solo encola el job).
