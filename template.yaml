@@ -3657,6 +3657,33 @@ Resources:
             Path: /parametrizacion/sugerir-ia/{job_id}/cancelar
             Method: POST
 
+  # Historial: lista los jobs de sugerencia de parametrización con IA de la
+  # empresa activa (metadatos, sin resultado). Permite que cualquier usuario de
+  # la empresa reabra una sugerencia ya generada (GET por id) sin reprocesar.
+  # SOLO LECTURA sobre la tabla de jobs, aislada por empresa_id (X-Empresa-Id).
+  ListarParametrizacionIaJobsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-parametrizacion-ia-jobs-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista el historial de jobs de sugerencia de parametrización con IA de la empresa activa (solo lectura, metadatos)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia
+            Method: GET
+
 # ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
 
   ListarFormasPagoFunction:
