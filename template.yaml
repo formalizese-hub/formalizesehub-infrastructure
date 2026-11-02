@@ -3490,7 +3490,9 @@ Resources:
       Description: Sugiere con IA la homologación de productos de un proveedor (solo lectura)
       Environment:
         Variables:
-          IA_PROVIDER: bedrock
+          # IA_PROVIDER: mock desactiva Bedrock (cero costo). Cambiar a 'bedrock'
+          # para reactivar cuando se retome la funcionalidad de IA.
+          IA_PROVIDER: mock
           BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
           BEDROCK_MAX_TOKENS: '4096'
@@ -3590,10 +3592,9 @@ Resources:
           # a 11 para que balances grandes (1000+ terceros) terminen dentro de los
           # 900s (con 4 el job de 1029 se agotaba por timeout).
           IA_CONCURRENCIA: '11'
-          # Modo de sugerencia del worker: 'ia_completa' activa el pipeline de IA
-          # completa (el único consumidor de IA_MODO es el orquestador, que corre
-          # aquí en el worker; el POST solo encola el job).
-          IA_MODO: ia_completa
+          # Modo de sugerencia del worker: 'reglas' desactiva la IA (cero costo
+          # de Bedrock). Cambiar a 'ia_completa' para reactivar cuando se retome.
+          IA_MODO: reglas
       Events:
         SQSTrigger:
           Type: SQS
