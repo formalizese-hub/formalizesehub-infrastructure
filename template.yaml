@@ -1066,6 +1066,31 @@ Resources:
             Path: /parametrizacion/referente
             Method: PUT
 
+  # Lista los proveedores referentes de la empresa activa con su acordeón de
+  # cuentas. Solo lectura. Rol operativo o superior. Aislado por empresa (join).
+  ListarReferentesProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-referentes-proveedor-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista los proveedores referentes de parametrización con sus cuentas
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/referentes
+            Method: GET
+
   # ── PARAMETRIZACIÓN GLOBAL (solo facturas emitidas) ──────────────────────────
 
   ListarParametrizacionGlobalFunction:
