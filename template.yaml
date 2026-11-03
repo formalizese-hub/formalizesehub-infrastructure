@@ -1091,6 +1091,31 @@ Resources:
             Path: /parametrizacion/referentes
             Method: GET
 
+  # Lista los proveedores de la empresa SIN parametrización activa (candidatos
+  # destino de una copia). Solo lectura. Rol operativo o superior.
+  ListarSinParametrizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-sin-parametrizacion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista proveedores sin parametrización activa (candidatos destino de copia)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sin-parametrizacion
+            Method: GET
+
   # ── PARAMETRIZACIÓN GLOBAL (solo facturas emitidas) ──────────────────────────
 
   ListarParametrizacionGlobalFunction:
