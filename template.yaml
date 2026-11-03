@@ -4030,6 +4030,30 @@ Resources:
             Path: /telemetry/heartbeat/beacon
             Method: POST
 
+  # Reporte de actividad por usuario (solo superadmin). Consulta de solo lectura.
+  ReporteActividadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-reporte-actividad-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Reporte de actividad de usuario desglosado (solo superadmin) (GET /telemetry/report/usuarios)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /telemetry/report/usuarios
+            Method: GET
+
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
 # ─────────────────────────────────────────────────────────────────────────────
