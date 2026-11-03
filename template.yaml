@@ -3976,6 +3976,60 @@ Resources:
             Path: /metodo-pago/{id}
             Method: DELETE
 
+  # ── LAMBDAS: TELEMETRÍA ──────────────────────────────────────────────────────
+  # Microservicio de telemetría de actividad de usuario (repo
+  # formalizesehub-telemetria). Dos endpoints colgando del API compartido:
+  #   POST /telemetry/heartbeat         — auth por header Authorization
+  #   POST /telemetry/heartbeat/beacon  — auth por token en el cuerpo (sendBeacon)
+  # El código real lo sube el pipeline del repo de telemetría vía
+  # update-function-code; aquí se define el recurso con placeholder (patrón infra).
+  # El preflight OPTIONS lo resuelve el CORS del API compartido (Globals.Api.Cors).
+  RegistrarHeartbeatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-registrar-heartbeat-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Ingesta de heartbeats de actividad autenticada por header Authorization (POST /telemetry/heartbeat)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /telemetry/heartbeat
+            Method: POST
+
+  RegistrarHeartbeatBeaconFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-registrar-heartbeat-beacon-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Flush de heartbeat vía sendBeacon, autenticado por token en el cuerpo (POST /telemetry/heartbeat/beacon)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /telemetry/heartbeat/beacon
+            Method: POST
+
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
 # ─────────────────────────────────────────────────────────────────────────────
