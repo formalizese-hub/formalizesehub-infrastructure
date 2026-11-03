@@ -1116,6 +1116,33 @@ Resources:
             Path: /parametrizacion/sin-parametrizacion
             Method: GET
 
+  # Copia masiva de parametrización de un referente a N destinos (transacción
+  # única). Solo admin o superior. Aislado por empresa. Omite destinos ya
+  # parametrizados o ajenos a la empresa (no aborta).
+  CopiarParametrizacionMasivaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-copiar-parametrizacion-masiva-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Copia la parametrización de un proveedor referente a varios destinos
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/copiar
+            Method: POST
+
   # ── PARAMETRIZACIÓN GLOBAL (solo facturas emitidas) ──────────────────────────
 
   ListarParametrizacionGlobalFunction:
