@@ -1040,6 +1040,32 @@ Resources:
             Path: /proveedores-por-cuentas/{id}
             Method: DELETE
 
+  # Marca/desmarca un proveedor como "referente" (plantilla para copiar su
+  # parametrización). Solo admin o superior. Aislado por empresa (join a
+  # proveedores; la tabla no tiene empresa_id). Múltiples referentes permitidos.
+  MarcarReferenteProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-marcar-referente-proveedor-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Marca o desmarca un proveedor como referente de parametrización
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/referente
+            Method: PUT
+
   # ── PARAMETRIZACIÓN GLOBAL (solo facturas emitidas) ──────────────────────────
 
   ListarParametrizacionGlobalFunction:
