@@ -3473,6 +3473,38 @@ Resources:
             Path: /homologacion-productos
             Method: POST
 
+  # Copia la configuración de homologación de un producto referente a varios
+  # productos destino del mismo proveedor, en una sola transacción, y encola
+  # UN reproceso de causación por proveedor tras el COMMIT (RF-06). Por eso
+  # necesita CAUSACION_DETALLE_QUEUE_URL igual que CrearHomologacionFunction.
+  # La ruta se declara antes de /homologacion-productos/{id} para evitar que el
+  # segmento "copiar" se capture como {id}.
+  CopiarHomologacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-copiar-homologacion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Copia la homologación de un producto referente a varios destinos
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /homologacion-productos/copiar
+            Method: POST
+
   ActualizarHomologacionFunction:
     Type: AWS::Serverless::Function
     Properties:
