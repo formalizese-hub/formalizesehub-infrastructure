@@ -2629,6 +2629,30 @@ Resources:
             Path: /redistribuciones/revertir-consecutivo
             Method: POST
 
+  ResetProcesoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-reset-proceso-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Herramienta interna — resetea facturas y borra causación/redistribución por empresa y rango de fechas (allowlist de usuarios, solo no-prod)
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /reset-proceso
+            Method: POST
+
   # ── LAMBDAS: PROCESAMIENTO DE FACTURAS ─────────────────────────────────────
   # Flujo actual (Gmail):
   #   EventBridge → EmailInvoicePoller → S3 + SQS (InvoiceProcessingQueue)
