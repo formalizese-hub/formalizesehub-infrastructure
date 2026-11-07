@@ -1282,6 +1282,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../formalizesehub-homologacion/services/crear-homologacion/dist/
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
@@ -1294,6 +1297,9 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../formalizesehub-homologacion/services/actualizar-homologacion/dist/
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api

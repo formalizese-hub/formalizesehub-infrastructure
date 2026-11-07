@@ -1040,6 +1040,109 @@ Resources:
             Path: /proveedores-por-cuentas/{id}
             Method: DELETE
 
+  # Marca/desmarca un proveedor como "referente" (plantilla para copiar su
+  # parametrización). Solo admin o superior. Aislado por empresa (join a
+  # proveedores; la tabla no tiene empresa_id). Múltiples referentes permitidos.
+  MarcarReferenteProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-marcar-referente-proveedor-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Marca o desmarca un proveedor como referente de parametrización
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/referente
+            Method: PUT
+
+  # Lista los proveedores referentes de la empresa activa con su acordeón de
+  # cuentas. Solo lectura. Rol operativo o superior. Aislado por empresa (join).
+  ListarReferentesProveedorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-referentes-proveedor-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista los proveedores referentes de parametrización con sus cuentas
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/referentes
+            Method: GET
+
+  # Lista los proveedores de la empresa SIN parametrización activa (candidatos
+  # destino de una copia). Solo lectura. Rol operativo o superior.
+  ListarSinParametrizacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-sin-parametrizacion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista proveedores sin parametrización activa (candidatos destino de copia)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sin-parametrizacion
+            Method: GET
+
+  # Copia masiva de parametrización de un referente a N destinos (transacción
+  # única). Solo admin o superior. Aislado por empresa. Omite destinos ya
+  # parametrizados o ajenos a la empresa (no aborta).
+  CopiarParametrizacionMasivaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-copiar-parametrizacion-masiva-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 60
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Copia la parametrización de un proveedor referente a varios destinos
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/copiar
+            Method: POST
+
   # ── PARAMETRIZACIÓN GLOBAL (solo facturas emitidas) ──────────────────────────
 
   ListarParametrizacionGlobalFunction:
@@ -2017,6 +2120,12 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/txt
             Method: POST
+        ApiCausacionDetalle:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/exportar-txt
+            Method: POST
 
   GenerarExcelTnsRedistribucionFunction:
     Type: AWS::Serverless::Function
@@ -2268,6 +2377,9 @@ Resources:
         - !Ref AWS::NoValue
       Description: Actualiza el cabezal editable de una causación a detalle
       Timeout: 30
+      Environment:
+        Variables:
+          AUTO_CAUSACION_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
@@ -2331,6 +2443,12 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /generar-tesoreria-tns/{id}
             Method: GET
+        ApiCausacionDetalle:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /causacion-detalle/{id}/exportar-tesoreria-tns
+            Method: POST
         ApiPost:
           Type: Api
           Properties:
@@ -2509,6 +2627,30 @@ Resources:
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /redistribuciones/revertir-consecutivo
+            Method: POST
+
+  ResetProcesoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-reset-proceso-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Herramienta interna — resetea facturas y borra causación/redistribución por empresa y rango de fechas (allowlist de usuarios, solo no-prod)
+      Timeout: 30
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /reset-proceso
             Method: POST
 
   # ── LAMBDAS: PROCESAMIENTO DE FACTURAS ─────────────────────────────────────
@@ -3344,12 +3486,47 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Crea una homologación producto_proveedor → producto_empresa
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
           Properties:
             RestApiId: !Ref FormalizeSEApi
             Path: /homologacion-productos
+            Method: POST
+
+  # Copia la configuración de homologación de un producto referente a varios
+  # productos destino del mismo proveedor, en una sola transacción, y encola
+  # UN reproceso de causación por proveedor tras el COMMIT (RF-06). Por eso
+  # necesita CAUSACION_DETALLE_QUEUE_URL igual que CrearHomologacionFunction.
+  # La ruta se declara antes de /homologacion-productos/{id} para evitar que el
+  # segmento "copiar" se capture como {id}.
+  CopiarHomologacionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-copiar-homologacion-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Copia la homologación de un producto referente a varios destinos
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /homologacion-productos/copiar
             Method: POST
 
   ActualizarHomologacionFunction:
@@ -3367,6 +3544,9 @@ Resources:
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
       Description: Actualiza el producto_empresa_id de una homologación
+      Environment:
+        Variables:
+          CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:
         Api:
           Type: Api
@@ -3469,8 +3649,10 @@ Resources:
       Description: Sugiere con IA la homologación de productos de un proveedor (solo lectura)
       Environment:
         Variables:
-          IA_PROVIDER: bedrock
-          BEDROCK_REGION: sa-east-1
+          # IA_PROVIDER: mock desactiva Bedrock (cero costo). Cambiar a 'bedrock'
+          # para reactivar cuando se retome la funcionalidad de IA.
+          IA_PROVIDER: mock
+          BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
           BEDROCK_MAX_TOKENS: '4096'
           HOMOLOGACION_TRGM_K: '15'
@@ -3513,7 +3695,7 @@ Resources:
       Environment:
         Variables:
           IA_PROVIDER: bedrock
-          BEDROCK_REGION: sa-east-1
+          BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
           BEDROCK_MAX_TOKENS: '4096'
           IA_LOTE_ITEMS: '25'
@@ -3553,11 +3735,25 @@ Resources:
       Environment:
         Variables:
           IA_PROVIDER: bedrock
-          BEDROCK_REGION: sa-east-1
+          BEDROCK_REGION: us-east-2
           BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
-          BEDROCK_MAX_TOKENS: '4096'
+          # Salida del modelo: 8192 tokens para que el JSON de un lote de
+          # proveedores quepa completo (con 4096 se truncaba => "salida inválida").
+          BEDROCK_MAX_TOKENS: '8192'
           IA_LOTE_ITEMS: '25'
-          IA_LOTE_TERCEROS: '50'
+          # Lote de proveedores por llamada a la IA. Lotes PEQUEÑOS (8) para que
+          # el prompt y la salida JSON de cada llamada quepan en la ventana del
+          # modelo y validen. Balances grandes se procesan en varios lotes.
+          IA_LOTE_TERCEROS: '8'
+          # Concurrencia de llamadas a la IA (lotes en paralelo). Acota cuántas
+          # peticiones a Bedrock corren a la vez: acelera balances grandes para
+          # caber en el timeout del worker (900s) sin agotar el throttle. Se sube
+          # a 11 para que balances grandes (1000+ terceros) terminen dentro de los
+          # 900s (con 4 el job de 1029 se agotaba por timeout).
+          IA_CONCURRENCIA: '11'
+          # Modo de sugerencia del worker: 'reglas' desactiva la IA (cero costo
+          # de Bedrock). Cambiar a 'ia_completa' para reactivar cuando se retome.
+          IA_MODO: reglas
       Events:
         SQSTrigger:
           Type: SQS
@@ -3620,6 +3816,33 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /parametrizacion/sugerir-ia/{job_id}/cancelar
             Method: POST
+
+  # Historial: lista los jobs de sugerencia de parametrización con IA de la
+  # empresa activa (metadatos, sin resultado). Permite que cualquier usuario de
+  # la empresa reabra una sugerencia ya generada (GET por id) sin reprocesar.
+  # SOLO LECTURA sobre la tabla de jobs, aislada por empresa_id (X-Empresa-Id).
+  ListarParametrizacionIaJobsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-listar-parametrizacion-ia-jobs-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Lista el historial de jobs de sugerencia de parametrización con IA de la empresa activa (solo lectura, metadatos)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /parametrizacion/sugerir-ia
+            Method: GET
 
 # ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
 
@@ -3808,6 +4031,84 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /metodo-pago/{id}
             Method: DELETE
+
+  # ── LAMBDAS: TELEMETRÍA ──────────────────────────────────────────────────────
+  # Microservicio de telemetría de actividad de usuario (repo
+  # formalizesehub-telemetria). Dos endpoints colgando del API compartido:
+  #   POST /telemetry/heartbeat         — auth por header Authorization
+  #   POST /telemetry/heartbeat/beacon  — auth por token en el cuerpo (sendBeacon)
+  # El código real lo sube el pipeline del repo de telemetría vía
+  # update-function-code; aquí se define el recurso con placeholder (patrón infra).
+  # El preflight OPTIONS lo resuelve el CORS del API compartido (Globals.Api.Cors).
+  RegistrarHeartbeatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-registrar-heartbeat-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Ingesta de heartbeats de actividad autenticada por header Authorization (POST /telemetry/heartbeat)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /telemetry/heartbeat
+            Method: POST
+
+  RegistrarHeartbeatBeaconFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-registrar-heartbeat-beacon-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Flush de heartbeat vía sendBeacon, autenticado por token en el cuerpo (POST /telemetry/heartbeat/beacon)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /telemetry/heartbeat/beacon
+            Method: POST
+
+  # Reporte de actividad por usuario (solo superadmin). Consulta de solo lectura.
+  ReporteActividadFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub formalizese-reporte-actividad-${Environment}
+      CodeUri: ./placeholder/
+      Role: !GetAtt LambdaExecutionRole.Arn
+      VpcConfig: !If
+        - UseVpcCondition
+        - SecurityGroupIds:
+            - !Ref LambdaSecurityGroup
+          SubnetIds:
+            - !Ref Subnet1Id
+            - !Ref Subnet2Id
+        - !Ref AWS::NoValue
+      Description: Reporte de actividad de usuario desglosado (solo superadmin) (GET /telemetry/report/usuarios)
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /telemetry/report/usuarios
+            Method: GET
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
