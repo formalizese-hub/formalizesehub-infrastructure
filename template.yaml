@@ -3902,7 +3902,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${InvoiceProcessingFunctionSQSTrigger}", "Enabled": false}'
+        Input: !Sub '{"Uuid": "${InvoiceProcessingFunctionSQSTrigger}", "Enabled": false}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -3919,7 +3919,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${InvoiceProcessingFunctionSQSTrigger}", "Enabled": true}'
+        Input: !Sub '{"Uuid": "${InvoiceProcessingFunctionSQSTrigger}", "Enabled": true}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -3937,7 +3937,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${DianSoapFunctionSQSTrigger}", "Enabled": false}'
+        Input: !Sub '{"Uuid": "${DianSoapFunctionSQSTrigger}", "Enabled": false}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -3954,7 +3954,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${DianSoapFunctionSQSTrigger}", "Enabled": true}'
+        Input: !Sub '{"Uuid": "${DianSoapFunctionSQSTrigger}", "Enabled": true}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -3972,7 +3972,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${AutoRedistribucionFunctionSQSTrigger}", "Enabled": false}'
+        Input: !Sub '{"Uuid": "${AutoRedistribucionFunctionSQSTrigger}", "Enabled": false}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -3989,7 +3989,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${AutoRedistribucionFunctionSQSTrigger}", "Enabled": true}'
+        Input: !Sub '{"Uuid": "${AutoRedistribucionFunctionSQSTrigger}", "Enabled": true}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -4007,7 +4007,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${AutoRedistribucionEmitidasFunctionSQSTrigger}", "Enabled": false}'
+        Input: !Sub '{"Uuid": "${AutoRedistribucionEmitidasFunctionSQSTrigger}", "Enabled": false}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -4024,7 +4024,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${AutoRedistribucionEmitidasFunctionSQSTrigger}", "Enabled": true}'
+        Input: !Sub '{"Uuid": "${AutoRedistribucionEmitidasFunctionSQSTrigger}", "Enabled": true}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -4042,7 +4042,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${AutoCausacionDetalleFunctionSQSTrigger}", "Enabled": false}'
+        Input: !Sub '{"Uuid": "${AutoCausacionDetalleFunctionSQSTrigger}", "Enabled": false}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
@@ -4059,7 +4059,7 @@ Resources:
       Target:
         Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
         RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
-        Input: !Sub '{"UUID": "${AutoCausacionDetalleFunctionSQSTrigger}", "Enabled": true}'
+        Input: !Sub '{"Uuid": "${AutoCausacionDetalleFunctionSQSTrigger}", "Enabled": true}'
         RetryPolicy:
           MaximumRetryAttempts: 3
 
