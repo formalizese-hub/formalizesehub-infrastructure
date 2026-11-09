@@ -264,29 +264,6 @@ Resources:
         deadLetterTargetArn: !GetAtt CausacionDetalleDLQ.Arn
         maxReceiveCount: 3
 
-  # Cola del flujo ASÍNCRONO de sugerencia de parametrización con IA.
-  # Flujo: SugerirParametrizacionIaFunction (POST) publica el job_id →
-  #        SugerirParametrizacionIaQueue → ProcesarParametrizacionIaJobFunction
-  #        (worker) consume y procesa con IA por lotes.
-  # El mensaje lleva SOLO el job_id (los .xlsx viven en la tabla de jobs en
-  # Postgres), por lo que nunca se roza el límite de 256KB de SQS.
-  SugerirParametrizacionIaDLQ:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub formalizese-sugerir-parametrizacion-ia-dlq-${Environment}
-      MessageRetentionPeriod: 1209600  # 14 días
-
-  SugerirParametrizacionIaQueue:
-    Type: AWS::SQS::Queue
-    Properties:
-      QueueName: !Sub formalizese-sugerir-parametrizacion-ia-${Environment}
-      VisibilityTimeout: 960           # 16 min — > timeout del worker (900s) con margen
-      MessageRetentionPeriod: 345600   # 4 días
-      ReceiveMessageWaitTimeSeconds: 20
-      RedrivePolicy:
-        deadLetterTargetArn: !GetAtt SugerirParametrizacionIaDLQ.Arn
-        maxReceiveCount: 3
-
   # ── IAM ROLE PARA LAMBDAS ────────────────────────────────────────────────────
   # Permisos mínimos necesarios. Para agregar permisos a una Lambda específica,
   # usar la propiedad Policies directamente en el recurso AWS::Serverless::Function
@@ -350,20 +327,6 @@ Resources:
                   - sqs:DeleteMessage
                   - sqs:GetQueueAttributes
                 Resource: !GetAtt CausacionDetalleQueue.Arn
-              # Flujo asíncrono de sugerencia de parametrización con IA:
-              #   - SendMessage: lo usa el POST (SugerirParametrizacionIaFunction).
-              #   - Receive/Delete/GetQueueAttributes: los usa el worker
-              #     (ProcesarParametrizacionIaJobFunction) vía Event source mapping.
-              - Effect: Allow
-                Action:
-                  - sqs:SendMessage
-                Resource: !GetAtt SugerirParametrizacionIaQueue.Arn
-              - Effect: Allow
-                Action:
-                  - sqs:ReceiveMessage
-                  - sqs:DeleteMessage
-                  - sqs:GetQueueAttributes
-                Resource: !GetAtt SugerirParametrizacionIaQueue.Arn
               - Effect: Allow
                 Action:
                   - sqs:SendMessage
@@ -392,23 +355,6 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:formalizese-invoice-processing-${Environment}
-              # Permite al servicio sugerir-homologacion-ia invocar el modelo Anthropic
-              # Claude en Bedrock (región sa-east-1). Se invoca vía inference profile,
-              # por eso se incluye tanto el ARN del foundation-model como el del
-              # inference-profile. Requiere que el model access de Anthropic esté
-              # aprobado manualmente en la cuenta para esa región.
-              # El modelo se invoca vía inference profile GLOBAL (prefijo "global."),
-              # que enruta a los foundation-models de forma multi-región. Por eso el
-              # ARN del foundation-model que IAM evalúa va SIN región
-              # (arn:aws:bedrock:::foundation-model/...). Se usa comodín de región
-              # (bedrock:*::) para cubrir el enrutamiento del perfil global a
-              # cualquier región. El inference-profile sí lleva región y cuenta.
-              - Effect: Allow
-                Action:
-                  - bedrock:InvokeModel
-                Resource:
-                  - arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0
-                  - !Sub arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0
 
   # ── API GATEWAY ──────────────────────────────────────────────────────────────
   # Un único API Gateway para todos los servicios.
@@ -3624,226 +3570,6 @@ Resources:
             Path: /homologacion-productos/cargar
             Method: POST
 
-  # Sugiere con IA (AWS Bedrock, Anthropic Claude) la homologación de los
-  # productos de un proveedor contra el catálogo de la empresa activa. SOLO
-  # LECTURA (SELECT parametrizados); no persiste. Las llamadas al LLM por lotes
-  # pueden tardar, por eso Timeout/MemorySize elevados respecto al default.
-  # BEDROCK_MODEL_ID usa el INFERENCE PROFILE (no el id raw): el id crudo no
-  # soporta invocación on-demand y devuelve ValidationException.
-  SugerirHomologacionIaFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-sugerir-homologacion-ia-${Environment}
-      CodeUri: ./placeholder/
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Timeout: 120
-      MemorySize: 1024
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Sugiere con IA la homologación de productos de un proveedor (solo lectura)
-      Environment:
-        Variables:
-          # IA_PROVIDER: mock desactiva Bedrock (cero costo). Cambiar a 'bedrock'
-          # para reactivar cuando se retome la funcionalidad de IA.
-          IA_PROVIDER: mock
-          BEDROCK_REGION: us-east-2
-          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
-          BEDROCK_MAX_TOKENS: '4096'
-          HOMOLOGACION_TRGM_K: '15'
-          IA_LOTE_PRODUCTOS: '25'
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /homologacion/sugerir-ia
-            Method: POST
-
-  # Sugiere con IA (AWS Bedrock, Anthropic Claude) la parametrización de
-  # causación de compras POR PROVEEDOR a partir de uno o más Excel de BALANCE DE
-  # COMPROBACIÓN. SOLO LECTURA (SELECT parametrizados); no persiste. Reglas
-  # deterministas por prefijo de cuenta + IA para desambiguar porcentajes de
-  # IVA/retención. El parseo de varios .xlsx y las llamadas al LLM por lotes
-  # pueden tardar, por eso Timeout/MemorySize elevados respecto al default.
-  # BEDROCK_MODEL_ID usa el INFERENCE PROFILE (no el id raw): el id crudo no
-  # soporta invocación on-demand y devuelve ValidationException. El permiso IAM
-  # bedrock:InvokeModel ya está concedido en el LambdaExecutionRole compartido
-  # (ver bloque de política más arriba), igual que para sugerir-homologacion-ia.
-  SugerirParametrizacionIaFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-sugerir-parametrizacion-ia-${Environment}
-      CodeUri: ./placeholder/
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Timeout: 120
-      MemorySize: 1024
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Sugiere con IA la parametrización de causación por proveedor desde el balance de comprobación (solo lectura)
-      Environment:
-        Variables:
-          IA_PROVIDER: bedrock
-          BEDROCK_REGION: us-east-2
-          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
-          BEDROCK_MAX_TOKENS: '4096'
-          IA_LOTE_ITEMS: '25'
-          # Cola del flujo asíncrono: el POST encola SOLO el job_id aquí.
-          SUGERIR_PARAMETRIZACION_IA_QUEUE_URL: !Ref SugerirParametrizacionIaQueue
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /parametrizacion/sugerir-ia
-            Method: POST
-
-  # Worker del flujo ASÍNCRONO: consume la cola SQS y procesa la sugerencia con
-  # IA SIN el límite de 29s de API Gateway (un balance real ~1029 terceros). Lee
-  # catálogos (SOLO LECTURA) y escribe EXCLUSIVAMENTE la tabla de jobs
-  # (parametrizacion_sugerida_jobs): la parametrización definitiva NO se persiste.
-  # Timeout/MemorySize altos; Bedrock vía inference profile (permiso
-  # bedrock:InvokeModel ya en el LambdaExecutionRole). DLQ configurada en la cola.
-  ProcesarParametrizacionIaJobFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-procesar-parametrizacion-ia-job-${Environment}
-      CodeUri: ./placeholder/
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Timeout: 900
-      MemorySize: 1024
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Worker SQS que procesa de forma asíncrona el job de sugerencia de parametrización con IA (progreso por lote, solo lectura de catálogos)
-      Environment:
-        Variables:
-          IA_PROVIDER: bedrock
-          BEDROCK_REGION: us-east-2
-          BEDROCK_MODEL_ID: global.anthropic.claude-sonnet-4-5-20250929-v1:0
-          # Salida del modelo: 8192 tokens para que el JSON de un lote de
-          # proveedores quepa completo (con 4096 se truncaba => "salida inválida").
-          BEDROCK_MAX_TOKENS: '8192'
-          IA_LOTE_ITEMS: '25'
-          # Lote de proveedores por llamada a la IA. Lotes PEQUEÑOS (8) para que
-          # el prompt y la salida JSON de cada llamada quepan en la ventana del
-          # modelo y validen. Balances grandes se procesan en varios lotes.
-          IA_LOTE_TERCEROS: '8'
-          # Concurrencia de llamadas a la IA (lotes en paralelo). Acota cuántas
-          # peticiones a Bedrock corren a la vez: acelera balances grandes para
-          # caber en el timeout del worker (900s) sin agotar el throttle. Se sube
-          # a 11 para que balances grandes (1000+ terceros) terminen dentro de los
-          # 900s (con 4 el job de 1029 se agotaba por timeout).
-          IA_CONCURRENCIA: '11'
-          # Modo de sugerencia del worker: 'reglas' desactiva la IA (cero costo
-          # de Bedrock). Cambiar a 'ia_completa' para reactivar cuando se retome.
-          IA_MODO: reglas
-      Events:
-        SQSTrigger:
-          Type: SQS
-          Properties:
-            Queue: !GetAtt SugerirParametrizacionIaQueue.Arn
-            BatchSize: 1
-
-  # Endpoint de polling: devuelve estado/progreso y, cuando el job está 'done',
-  # el resultado. Aislamiento multi-tenant por empresa_id (header X-Empresa-Id).
-  # SOLO LECTURA sobre la tabla de jobs.
-  ObtenerParametrizacionIaJobFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-obtener-parametrizacion-ia-job-${Environment}
-      CodeUri: ./placeholder/
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Devuelve estado/progreso/resultado de un job de sugerencia de parametrización con IA (polling)
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /parametrizacion/sugerir-ia/{job_id}
-            Method: GET
-
-  # Cancelación por el creador de un job de sugerencia de parametrización con IA.
-  # Cancela un job en 'pending' o 'processing' dejándolo en estado terminal
-  # 'cancelled' (ver migración V89). Es una escritura pequeña sobre la tabla de
-  # jobs (parametrizacion_sugerida_jobs), aislada por empresa_id (header
-  # X-Empresa-Id); el worker aborta de forma limpia entre lotes al detectarlo.
-  # NO requiere permisos SQS ni Bedrock: solo BD, ya cubierta por el role.
-  CancelarParametrizacionIaJobFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-cancelar-parametrizacion-ia-job-${Environment}
-      CodeUri: ./placeholder/
-      Role: !GetAtt LambdaExecutionRole.Arn
-      Timeout: 30
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Cancela un job de sugerencia de parametrización con IA (pending/processing -> cancelled), idempotente y aislado por empresa
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /parametrizacion/sugerir-ia/{job_id}/cancelar
-            Method: POST
-
-  # Historial: lista los jobs de sugerencia de parametrización con IA de la
-  # empresa activa (metadatos, sin resultado). Permite que cualquier usuario de
-  # la empresa reabra una sugerencia ya generada (GET por id) sin reprocesar.
-  # SOLO LECTURA sobre la tabla de jobs, aislada por empresa_id (X-Empresa-Id).
-  ListarParametrizacionIaJobsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub formalizese-listar-parametrizacion-ia-jobs-${Environment}
-      CodeUri: ./placeholder/
-      Role: !GetAtt LambdaExecutionRole.Arn
-      VpcConfig: !If
-        - UseVpcCondition
-        - SecurityGroupIds:
-            - !Ref LambdaSecurityGroup
-          SubnetIds:
-            - !Ref Subnet1Id
-            - !Ref Subnet2Id
-        - !Ref AWS::NoValue
-      Description: Lista el historial de jobs de sugerencia de parametrización con IA de la empresa activa (solo lectura, metadatos)
-      Events:
-        Api:
-          Type: Api
-          Properties:
-            RestApiId: !Ref FormalizeSEApi
-            Path: /parametrizacion/sugerir-ia
-            Method: GET
-
 # ── LAMBDAS: CAUSACIÓN DETALLE — FORMAS DE PAGO ─────────────────────────────
 
   ListarFormasPagoFunction:
@@ -4109,6 +3835,233 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /telemetry/report/usuarios
             Method: GET
+
+# ─────────────────────────────────────────────────────────────────────────────
+# HORARIO DE TRIGGERS SQS (apagado nocturno)
+# ─────────────────────────────────────────────────────────────────────────────
+  # Cada Lambda con trigger SQS sondea su cola de forma permanente (~60 mil
+  # ReceiveMessage vacíos por semana por cola, aunque no haya uso). Como no se
+  # trabaja de noche, los triggers se apagan de 22:00 a 06:00 (hora Colombia).
+  #
+  # No hay Lambda intermedia: EventBridge Scheduler llama directamente a la API
+  # lambda:UpdateEventSourceMapping (universal target). El UUID de cada trigger
+  # se obtiene con !Ref del recurso que SAM genera: <Función>SQSTrigger.
+  #
+  # Los mensajes que lleguen de noche quedan en la cola (retención 4-14 días) y
+  # se procesan al encender a las 06:00.
+  #
+  # Para agregar un trigger nuevo al horario:
+  #   1. Agregar su ARN en la política de TriggersSqsSchedulerRole
+  #   2. Duplicar el par Apagar/Encender cambiando el !Ref del trigger
+
+  TriggersSqsSchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub formalizese-triggers-sqs-scheduler-${Environment}-${AWS::Region}
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: ActualizarTriggersSqs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:UpdateEventSourceMapping
+                Resource:
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:${InvoiceProcessingFunctionSQSTrigger}
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:${DianSoapFunctionSQSTrigger}
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:${AutoRedistribucionFunctionSQSTrigger}
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:${AutoRedistribucionEmitidasFunctionSQSTrigger}
+                  - !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:event-source-mapping:${AutoCausacionDetalleFunctionSQSTrigger}
+
+  TriggersSqsScheduleGroup:
+    Type: AWS::Scheduler::ScheduleGroup
+    Properties:
+      Name: !Sub formalizese-triggers-sqs-${Environment}
+
+  # ── InvoiceProcessing ──
+  ApagarTriggerInvoiceProcessingSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-apagar-invoice-processing-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Apaga el trigger SQS de invoice-processing a las 22:00 (Colombia)
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${InvoiceProcessingFunctionSQSTrigger}", "Enabled": false}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  EncenderTriggerInvoiceProcessingSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-encender-invoice-processing-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Enciende el trigger SQS de invoice-processing a las 06:00 (Colombia)
+      ScheduleExpression: cron(0 6 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${InvoiceProcessingFunctionSQSTrigger}", "Enabled": true}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  # ── DianSoap ──
+  ApagarTriggerDianSoapSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-apagar-dian-soap-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Apaga el trigger SQS de dian-soap a las 22:00 (Colombia)
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${DianSoapFunctionSQSTrigger}", "Enabled": false}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  EncenderTriggerDianSoapSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-encender-dian-soap-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Enciende el trigger SQS de dian-soap a las 06:00 (Colombia)
+      ScheduleExpression: cron(0 6 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${DianSoapFunctionSQSTrigger}", "Enabled": true}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  # ── AutoRedistribucion ──
+  ApagarTriggerAutoRedistribucionSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-apagar-auto-redistribucion-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Apaga el trigger SQS de auto-redistribucion a las 22:00 (Colombia)
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${AutoRedistribucionFunctionSQSTrigger}", "Enabled": false}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  EncenderTriggerAutoRedistribucionSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-encender-auto-redistribucion-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Enciende el trigger SQS de auto-redistribucion a las 06:00 (Colombia)
+      ScheduleExpression: cron(0 6 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${AutoRedistribucionFunctionSQSTrigger}", "Enabled": true}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  # ── AutoRedistribucionEmitidas ──
+  ApagarTriggerAutoRedistribucionEmitidasSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-apagar-auto-redistribucion-emitidas-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Apaga el trigger SQS de auto-redistribucion-emitidas a las 22:00 (Colombia)
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${AutoRedistribucionEmitidasFunctionSQSTrigger}", "Enabled": false}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  EncenderTriggerAutoRedistribucionEmitidasSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-encender-auto-redistribucion-emitidas-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Enciende el trigger SQS de auto-redistribucion-emitidas a las 06:00 (Colombia)
+      ScheduleExpression: cron(0 6 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${AutoRedistribucionEmitidasFunctionSQSTrigger}", "Enabled": true}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  # ── AutoCausacionDetalle ──
+  ApagarTriggerAutoCausacionDetalleSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-apagar-auto-causacion-detalle-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Apaga el trigger SQS de auto-causacion-detalle a las 22:00 (Colombia)
+      ScheduleExpression: cron(0 22 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${AutoCausacionDetalleFunctionSQSTrigger}", "Enabled": false}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
+
+  EncenderTriggerAutoCausacionDetalleSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub formalizese-encender-auto-causacion-detalle-${Environment}
+      GroupName: !Ref TriggersSqsScheduleGroup
+      Description: Enciende el trigger SQS de auto-causacion-detalle a las 06:00 (Colombia)
+      ScheduleExpression: cron(0 6 * * ? *)
+      ScheduleExpressionTimezone: America/Bogota
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: arn:aws:scheduler:::aws-sdk:lambda:updateEventSourceMapping
+        RoleArn: !GetAtt TriggersSqsSchedulerRole.Arn
+        Input: !Sub '{"UUID": "${AutoCausacionDetalleFunctionSQSTrigger}", "Enabled": true}'
+        RetryPolicy:
+          MaximumRetryAttempts: 3
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUTS
