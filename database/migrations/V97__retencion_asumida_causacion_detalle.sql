@@ -1,4 +1,4 @@
--- V96: Retención asumida en causación a detalle.
+-- V97: Retención asumida en causación a detalle.
 --
 -- 1. Dos campos en cuentas_contables para vincular la cuenta de retención asumida
 --    con el concepto TNS que se usa al generar el archivo de Tesorería.
@@ -8,7 +8,7 @@
 --    concepto_tns_compra_id     → concepto TNS cuando el documento es una compra (FC)
 --    concepto_tns_devolucion_id → concepto TNS cuando el documento es una devolución en compra (DC)
 --
--- 2. Tres flags booleanos en causacion_detalle para persistir la decisión
+-- 2. Tres flags nullable en causacion_detalle para persistir la decisión
 --    de retención asumida al momento del reproceso, siguiendo el mismo patrón
 --    que redistribucion_contable.retencion_asumida / reteiva_asumida / reteica_asumida.
 --
@@ -45,9 +45,9 @@ CREATE INDEX IF NOT EXISTS idx_cuentas_contables_concepto_tns_devolucion
 -- ── 2. Flags de retención asumida en causacion_detalle ───────────────────────
 
 ALTER TABLE causacion_detalle
-    ADD COLUMN IF NOT EXISTS retencion_asumida   BOOLEAN NOT NULL DEFAULT false,
-    ADD COLUMN IF NOT EXISTS reteiva_asumida     BOOLEAN NOT NULL DEFAULT false,
-    ADD COLUMN IF NOT EXISTS reteica_asumida     BOOLEAN NOT NULL DEFAULT false;
+    ADD COLUMN IF NOT EXISTS retencion_asumida   BOOLEAN DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS reteiva_asumida     BOOLEAN DEFAULT NULL,
+    ADD COLUMN IF NOT EXISTS reteica_asumida     BOOLEAN DEFAULT NULL;
 
 COMMENT ON COLUMN causacion_detalle.retencion_asumida
     IS 'Si true, la retención en la fuente de esta causación es asumida por la empresa (no descuenta del valor a pagar al proveedor).';
@@ -55,3 +55,5 @@ COMMENT ON COLUMN causacion_detalle.reteiva_asumida
     IS 'Si true, la ReteIVA de esta causación es asumida por la empresa.';
 COMMENT ON COLUMN causacion_detalle.reteica_asumida
     IS 'Si true, la ReteICA de esta causación es asumida por la empresa.';
+
+-- NULL significa que no hay override del modal y se hereda proveedores.retencion_asumida.
