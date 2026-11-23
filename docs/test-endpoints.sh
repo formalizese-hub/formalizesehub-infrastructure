@@ -1,7 +1,7 @@
 #!/bin/bash
 # =====================================================
 # FormalizeSE Hub — Test automatizado de endpoints
-# Uso: export API_BASE_URL=https://xxxxx.execute-api.sa-east-1.amazonaws.com/dev
+# Uso: export API_BASE_URL=https://xxxxx.execute-api.us-east-2.amazonaws.com/dev
 #      ./test-endpoints.sh
 # =====================================================
 
@@ -9,7 +9,7 @@ BASE="${API_BASE_URL:-}"
 
 if [ -z "$BASE" ]; then
     echo "❌ API_BASE_URL no configurada"
-    echo "   export API_BASE_URL=https://xxxxx.execute-api.sa-east-1.amazonaws.com/dev"
+    echo "   export API_BASE_URL=https://xxxxx.execute-api.us-east-2.amazonaws.com/dev"
     exit 1
 fi
 

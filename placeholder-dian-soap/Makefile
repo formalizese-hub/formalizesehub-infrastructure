@@ -4,3 +4,8 @@ build-DianSoapFunction:
 	@echo "Skipping build — deployed externally"
 	@mkdir -p $(ARTIFACTS_DIR)
 	@echo "placeholder" > $(ARTIFACTS_DIR)/placeholder.txt
+
+build-GeneratePdfFromXmlFunction:
+	@echo "Skipping build — deployed externally from formalizesehub-dian-soap"
+	@mkdir -p $(ARTIFACTS_DIR)
+	@echo "placeholder" > $(ARTIFACTS_DIR)/placeholder.txt

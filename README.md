@@ -6,7 +6,7 @@ Stack AWS SAM que despliega todos los recursos del sistema de facturación elect
 
 | Ambiente | Account ID | Región | Profile CLI |
 |----------|-----------|--------|-------------|
-| Dev (management) | 152406482061 | sa-east-1 | `formalizese-new` |
+| Dev (management) | 152406482061 | us-east-2 | `formalizese-new` |
 | Prod (hija) | 558567543665 | us-east-2 | `formalizese-prod` |
 
 ### Acceso a consola web de prod

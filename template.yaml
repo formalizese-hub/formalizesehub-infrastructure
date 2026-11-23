@@ -355,6 +355,10 @@ Resources:
                 Action:
                   - lambda:InvokeFunction
                 Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:formalizese-invoice-processing-${Environment}
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:formalizese-generate-pdf-from-xml-${Environment}
 
   # ── API GATEWAY ──────────────────────────────────────────────────────────────
   # Un único API Gateway para todos los servicios.
@@ -2663,6 +2667,34 @@ Resources:
             Queue: !GetAtt DianSoapQueue.Arn
             BatchSize: 1
 
+  GeneratePdfFromXmlFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: makefile
+    Properties:
+      FunctionName: !Sub formalizese-generate-pdf-from-xml-${Environment}
+      CodeUri: ./placeholder-dian-soap/
+      Runtime: java21
+      Handler: co.formalizese.diansoap.GeneratePdfFromXmlHandler::handleRequest
+      Timeout: 60
+      MemorySize: 1024
+      Description: Genera el PDF de una factura a partir de un XML manual guardado en S3
+      VpcConfig:
+        SecurityGroupIds: []
+        SubnetIds: []
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "${InvoicesBucket.Arn}/clients/*/xmls/manual/*"
+            - Effect: Allow
+              Action: s3:PutObject
+              Resource: !Sub "${InvoicesBucket.Arn}/clients/*/pdfs/manual/*"
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref InvoicesBucket
+
   InvoiceProcessingFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -2681,6 +2713,7 @@ Resources:
       Environment:
         Variables:
           S3_BUCKET_NAME: !Ref InvoicesBucket
+          PDF_GENERATOR_FUNCTION_NAME: !Sub formalizese-generate-pdf-from-xml-${Environment}
           REDISTRIBUCION_QUEUE_URL: !Ref RedistribucionProcessingQueue
           CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
       Events:

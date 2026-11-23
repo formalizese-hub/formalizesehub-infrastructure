@@ -4,11 +4,11 @@
 # =====================================================
 
 # Set your API Gateway URL here or export API_BASE_URL before running
-BASE="${API_BASE_URL:-https://YOUR_API_GATEWAY_ID.execute-api.sa-east-1.amazonaws.com/dev}"
+BASE="${API_BASE_URL:-https://YOUR_API_GATEWAY_ID.execute-api.us-east-2.amazonaws.com/dev}"
 
 if [[ "$BASE" == *"YOUR_API_GATEWAY_ID"* ]]; then
     echo "⚠️  Configure API_BASE_URL antes de ejecutar:"
-    echo "   export API_BASE_URL=https://xxxxx.execute-api.sa-east-1.amazonaws.com/dev"
+    echo "   export API_BASE_URL=https://xxxxx.execute-api.us-east-2.amazonaws.com/dev"
     exit 1
 fi
 

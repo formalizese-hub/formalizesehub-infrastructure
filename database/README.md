@@ -140,7 +140,7 @@ DB_ENDPOINT=$(aws cloudformation describe-stacks \
   --query 'Stacks[0].Outputs[?OutputKey==`DatabaseEndpoint`].OutputValue' \
   --output text \
   --profile personal \
-  --region sa-east-1)
+  --region us-east-2)
 
 psql -h $DB_ENDPOINT -U postgres -d formalizese -f infrastructure/database/schema.sql
 ```

@@ -8,13 +8,13 @@ parallel = true
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
 confirm_changeset = true
 resolve_s3 = true
-region = "sa-east-1"
+region = "us-east-2"
 profile = "YOUR_AWS_PROFILE"
 
 [dev.deploy.parameters]
 stack_name = "formalizese-hub"
 s3_prefix = "formalizese-hub-dev"
-region = "sa-east-1"
+region = "us-east-2"
 profile = "YOUR_AWS_PROFILE"
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
 confirm_changeset = true
@@ -24,7 +24,7 @@ parameter_overrides = "Environment=dev DatabasePassword={{resolve:ssm:/formalize
 [staging.deploy.parameters]
 stack_name = "formalizese-hub"
 s3_prefix = "formalizese-hub-staging"
-region = "sa-east-1"
+region = "us-east-2"
 profile = "YOUR_AWS_PROFILE"
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
 confirm_changeset = true
@@ -34,7 +34,7 @@ parameter_overrides = "Environment=staging DatabasePassword=CHANGE_ME VpcId=YOUR
 [prod.deploy.parameters]
 stack_name = "formalizese-hub"
 s3_prefix = "formalizese-hub-prod"
-region = "sa-east-1"
+region = "us-east-2"
 profile = "YOUR_AWS_PROFILE"
 capabilities = "CAPABILITY_IAM CAPABILITY_NAMED_IAM"
 confirm_changeset = true

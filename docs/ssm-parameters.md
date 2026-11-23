@@ -30,13 +30,13 @@ aws secretsmanager create-secret \
   --name formalizese/dev/gmail-service-account \
   --secret-string file://service-account-key.json \
   --description "Gmail Service Account key para email-invoice-poller" \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Actualizar (reemplazar placeholder por credenciales reales)
 aws secretsmanager put-secret-value \
   --secret-id formalizese/dev/gmail-service-account \
   --secret-string file://service-account-key.json \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ### Requisitos del Service Account
@@ -56,14 +56,14 @@ aws ssm put-parameter \
   --name /formalizese/dev/vpc-id \
   --value "vpc-xxxxxxxxxxxxxxxxx" \
   --type String \
-  --profile personal --region sa-east-1
+  --profile personal --region us-east-2
 
 # SecureString (para secretos)
 aws ssm put-parameter \
   --name /formalizese/dev/jwt-secret \
   --value "tu-secret-aqui" \
   --type SecureString \
-  --profile personal --region sa-east-1
+  --profile personal --region us-east-2
 ```
 
 ## Cómo verificar que todos existen
@@ -78,13 +78,13 @@ aws ssm get-parameters \
     /formalizese/dev/jwt-secret \
     /formalizese/dev/gmail-user-email \
   --with-decryption \
-  --profile formalizese-new --region sa-east-1 \
+  --profile formalizese-new --region us-east-2 \
   --query 'Parameters[].Name'
 
 # Verificar secret de Gmail
 aws secretsmanager get-secret-value \
   --secret-id formalizese/dev/gmail-service-account \
-  --profile formalizese-new --region sa-east-1 \
+  --profile formalizese-new --region us-east-2 \
   --query 'Name'
 ```
 

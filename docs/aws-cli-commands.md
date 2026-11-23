@@ -1,12 +1,12 @@
 # AWS CLI — Comandos base FormalizeSE Hub
 
-> Perfil: `formalizese-new` | Región: `sa-east-1`
+> Perfil: `formalizese-new` | Región: `us-east-2`
 >
-> Agrega `--profile formalizese-new --region sa-east-1` a todos los comandos,
+> Agrega `--profile formalizese-new --region us-east-2` a todos los comandos,
 > o exporta las variables para no repetirlos:
 > ```bash
 > export AWS_PROFILE=formalizese-new
-> export AWS_DEFAULT_REGION=sa-east-1
+> export AWS_DEFAULT_REGION=us-east-2
 > ```
 
 ---
@@ -15,7 +15,7 @@
 
 ```bash
 # Ver quién eres (account id, user/role)
-aws sts get-caller-identity --profile formalizese-new --region sa-east-1
+aws sts get-caller-identity --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -27,24 +27,24 @@ aws sts get-caller-identity --profile formalizese-new --region sa-east-1
 aws lambda list-functions \
   --query 'Functions[*].[FunctionName,Runtime,LastModified]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Buscar lambdas por nombre (filtro)
 aws lambda list-functions \
   --query 'Functions[?contains(FunctionName, `formalizese`)].FunctionName' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver detalle de una lambda
 aws lambda get-function \
   --function-name formalizese-email-invoice-poller-dev \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver variables de entorno de una lambda
 aws lambda get-function-configuration \
   --function-name formalizese-email-invoice-poller-dev \
   --query 'Environment.Variables' \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Invocar una lambda manualmente
 aws lambda invoke \
@@ -52,24 +52,24 @@ aws lambda invoke \
   --payload '{}' \
   --cli-binary-format raw-in-base64-out \
   response.json \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 cat response.json
 
 # Ver logs de la última ejecución
 aws logs tail /aws/lambda/formalizese-email-invoice-poller-dev \
   --follow \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver logs de un rango de tiempo (últimos 30 min)
 aws logs tail /aws/lambda/formalizese-email-invoice-poller-dev \
   --since 30m \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Actualizar código de una lambda (zip directo)
 aws lambda update-function-code \
   --function-name formalizese-email-invoice-poller-dev \
   --zip-file fileb://dist.zip \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -82,20 +82,20 @@ aws logs describe-log-groups \
   --log-group-name-prefix /aws/lambda/formalizese \
   --query 'logGroups[*].logGroupName' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver últimos eventos de un log group
 aws logs tail /aws/lambda/formalizese-auth-login-dev \
   --since 1h \
   --format short \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Filtrar logs por texto (buscar errores)
 aws logs filter-log-events \
   --log-group-name /aws/lambda/formalizese-email-invoice-poller-dev \
   --filter-pattern "ERROR" \
   --start-time $(date -d '1 hour ago' +%s000) \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -107,25 +107,25 @@ aws logs filter-log-events \
 aws secretsmanager list-secrets \
   --query 'SecretList[*].[Name,LastChangedDate]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver valor de un secret
 aws secretsmanager get-secret-value \
   --secret-id "formalizese/email-poller/gmail-credentials" \
   --query 'SecretString' \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Crear un secret
 aws secretsmanager create-secret \
   --name "formalizese/env/nombre-secret" \
   --secret-string '{"key":"value"}' \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Actualizar un secret
 aws secretsmanager put-secret-value \
   --secret-id "formalizese/env/nombre-secret" \
   --secret-string '{"key":"nuevo-value"}' \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -139,12 +139,12 @@ aws ssm get-parameters-by-path \
   --recursive \
   --query 'Parameters[*].[Name,Value]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver un parámetro
 aws ssm get-parameter \
   --name "/formalizese/dev/gmail-user-email" \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Crear / actualizar un parámetro
 aws ssm put-parameter \
@@ -152,7 +152,7 @@ aws ssm put-parameter \
   --value "valor" \
   --type String \
   --overwrite \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Parámetro seguro (contraseñas)
 aws ssm put-parameter \
@@ -160,7 +160,7 @@ aws ssm put-parameter \
   --value "mi-password" \
   --type SecureString \
   --overwrite \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -170,28 +170,28 @@ aws ssm put-parameter \
 ```bash
 # Listar buckets
 aws s3 ls \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Listar contenido de un bucket
 aws s3 ls s3://formalizese-invoices-dev-152406482061/ \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Listar con prefijo (carpeta)
 aws s3 ls s3://formalizese-invoices-dev-152406482061/emails/ \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Descargar un archivo
 aws s3 cp s3://formalizese-invoices-dev-152406482061/emails/2025-06/abc.zip ./abc.zip \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Subir un archivo
 aws s3 cp ./archivo.zip s3://formalizese-invoices-dev-152406482061/manual/ \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver tamaño total de un bucket
 aws s3 ls s3://formalizese-invoices-dev-152406482061/ \
   --recursive --human-readable --summarize \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -202,30 +202,30 @@ aws s3 ls s3://formalizese-invoices-dev-152406482061/ \
 # Listar colas
 aws sqs list-queues \
   --queue-name-prefix formalizese \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver atributos de una cola (mensajes pendientes, en vuelo, en DLQ)
 aws sqs get-queue-attributes \
-  --queue-url https://sqs.sa-east-1.amazonaws.com/152406482061/formalizese-invoice-processing-dev \
+  --queue-url https://sqs.us-east-2.amazonaws.com/152406482061/formalizese-invoice-processing-dev \
   --attribute-names All \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver cuántos mensajes hay en la DLQ
 aws sqs get-queue-attributes \
-  --queue-url https://sqs.sa-east-1.amazonaws.com/152406482061/formalizese-invoice-processing-dlq-dev \
+  --queue-url https://sqs.us-east-2.amazonaws.com/152406482061/formalizese-invoice-processing-dlq-dev \
   --attribute-names ApproximateNumberOfMessages \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Enviar mensaje de prueba a una cola
 aws sqs send-message \
-  --queue-url https://sqs.sa-east-1.amazonaws.com/152406482061/formalizese-invoice-processing-dev \
+  --queue-url https://sqs.us-east-2.amazonaws.com/152406482061/formalizese-invoice-processing-dev \
   --message-body '{"source":"manual","test":true}' \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Purgar todos los mensajes de una cola (¡cuidado!)
 aws sqs purge-queue \
-  --queue-url https://sqs.sa-east-1.amazonaws.com/152406482061/formalizese-invoice-processing-dlq-dev \
-  --profile formalizese-new --region sa-east-1
+  --queue-url https://sqs.us-east-2.amazonaws.com/152406482061/formalizese-invoice-processing-dlq-dev \
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -237,24 +237,24 @@ aws sqs purge-queue \
 aws apigateway get-rest-apis \
   --query 'items[*].[name,id]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver stages de una API (obtener el id de arriba)
 aws apigateway get-stages \
   --rest-api-id API_ID \
   --query 'item[*].[stageName,deploymentId]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver recursos/rutas de una API
 aws apigateway get-resources \
   --rest-api-id API_ID \
   --query 'items[*].[path,resourceMethods]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # URL del endpoint (formato)
-# https://API_ID.execute-api.sa-east-1.amazonaws.com/STAGE/
+# https://API_ID.execute-api.us-east-2.amazonaws.com/STAGE/
 ```
 
 ---
@@ -267,24 +267,24 @@ aws events list-rules \
   --name-prefix formalizese \
   --query 'Rules[*].[Name,State,ScheduleExpression]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Deshabilitar una regla (pausar schedule)
 aws events disable-rule \
   --name formalizese-email-poller-schedule-dev \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Habilitar una regla
 aws events enable-rule \
   --name formalizese-email-poller-schedule-dev \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver targets de una regla (qué lambda invoca)
 aws events list-targets-by-rule \
   --rule formalizese-email-poller-schedule-dev \
   --query 'Targets[*].[Arn,Id]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -297,23 +297,23 @@ aws lambda get-function-configuration \
   --function-name formalizese-invoice-processing-dev \
   --query 'Role' \
   --output text \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver políticas adjuntas a un rol
 aws iam list-attached-role-policies \
   --role-name formalizese-lambda-role-dev \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver políticas inline de un rol
 aws iam list-role-policies \
   --role-name formalizese-lambda-role-dev \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver detalle de una política inline
 aws iam get-role-policy \
   --role-name formalizese-lambda-role-dev \
   --policy-name NOMBRE_POLITICA \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -325,21 +325,21 @@ aws iam get-role-policy \
 aws cloudformation describe-stacks \
   --stack-name formalizese-hub \
   --query 'Stacks[0].StackStatus' \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver outputs del stack (URLs, ARNs)
 aws cloudformation describe-stacks \
   --stack-name formalizese-hub \
   --query 'Stacks[0].Outputs' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver eventos recientes del stack (útil para debuggear deploys fallidos)
 aws cloudformation describe-stack-events \
   --stack-name formalizese-hub \
   --query 'StackEvents[?ResourceStatus==`CREATE_FAILED` || ResourceStatus==`UPDATE_FAILED`].[LogicalResourceId,ResourceStatusReason]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -351,13 +351,13 @@ aws cloudformation describe-stack-events \
 aws rds describe-db-instances \
   --query 'DBInstances[*].[DBInstanceIdentifier,DBInstanceStatus,Endpoint.Address]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Ver endpoint de la base de datos
 aws rds describe-db-instances \
   --db-instance-identifier formalizese-db-dev \
   --query 'DBInstances[0].Endpoint' \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -370,13 +370,13 @@ aws rds describe-db-instances \
   --db-instance-identifier formalizese-db-dev \
   --query 'DBInstances[0].Endpoint.Address' \
   --output text \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Listar todas las instancias RDS con su host
 aws rds describe-db-instances \
   --query 'DBInstances[*].[DBInstanceIdentifier,Endpoint.Address]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # Conectarse a la BD
 psql -h formalizese-db-dev.cpmcqwiaqdl6.us-east-2.rds.amazonaws.com \
@@ -496,14 +496,14 @@ npm run build
 
 # 2. Subir ZIP a S3
 aws s3 cp dist.zip s3://formalizese-invoices-dev-152406482061/deploy/formalizesehub-invoice-processing.zip \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # 3. Actualizar la lambda desde S3
 aws lambda update-function-code \
   --function-name formalizese-invoice-processing-dev \
   --s3-bucket formalizese-invoices-dev-152406482061 \
   --s3-key deploy/formalizesehub-invoice-processing.zip \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # ── dian-processing ───────────────────────────────────────────────
 
@@ -513,14 +513,14 @@ npm run build
 
 # 2. Subir ZIP a S3
 aws s3 cp dist.zip s3://formalizese-invoices-dev-152406482061/deploy/formalizesehub-dian-download.zip \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # 3. Actualizar la lambda desde S3
 aws lambda update-function-code \
   --function-name formalizese-dian-processing-dev \
   --s3-bucket formalizese-invoices-dev-152406482061 \
   --s3-key deploy/formalizesehub-dian-download.zip \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 
 # ── Verificar que el código se actualizó (revisar LastModified) ───
 
@@ -528,7 +528,7 @@ aws lambda get-function \
   --function-name formalizese-invoice-processing-dev \
   --query 'Configuration.[LastModified,CodeSize]' \
   --output table \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```
 
 ---
@@ -592,11 +592,11 @@ aws lambda invoke \
   --payload '{}' \
   --cli-binary-format raw-in-base64-out \
   response.json \
-  --profile formalizese-new --region sa-east-1 && cat response.json
+  --profile formalizese-new --region us-east-2 && cat response.json
 
 # 4. Ver logs del procesamiento
 aws logs tail /aws/lambda/formalizese-invoice-processing-dev \
   --since 3m \
   --format short \
-  --profile formalizese-new --region sa-east-1
+  --profile formalizese-new --region us-east-2
 ```

@@ -224,7 +224,7 @@ if [ "$ENV" = "prod" ]; then
 else
   AWS_PROFILE="${AWS_PROFILE:-formalizese-dev}"
 fi
-AWS_REGION="${AWS_REGION:-$(aws configure get region --profile $AWS_PROFILE 2>/dev/null || echo sa-east-1)}"
+AWS_REGION="${AWS_REGION:-us-east-2}"
 
 echo ""
 echo "📦 SAM build..."
