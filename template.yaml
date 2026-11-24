@@ -371,6 +371,7 @@ Resources:
         - 'application/octet-stream'
         - 'multipart/form-data'
         - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        - 'text/plain'
       # Rate limiting: protege contra brute force y DDoS
       MethodSettings:
         - ResourcePath: "/*"
@@ -2348,7 +2349,7 @@ Resources:
             - !Ref Subnet1Id
             - !Ref Subnet2Id
         - !Ref AWS::NoValue
-      Description: Genera archivo Excel TNS (tipo 1 + tipo 3) desde causación a detalle aprobada
+      Description: Genera archivo TXT Visual TNS (registros maestro y detalle) desde causación a detalle aprobada
       Timeout: 60
       MemorySize: 512
       Events:
