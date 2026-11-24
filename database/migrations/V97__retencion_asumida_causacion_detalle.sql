@@ -23,9 +23,9 @@
 -- ── 1. Plan de cuentas ────────────────────────────────────────────────────────
 
 ALTER TABLE cuentas_contables
-    ADD COLUMN IF NOT EXISTS concepto_tns_compra_id     UUID
+    ADD COLUMN IF NOT EXISTS concepto_tns_compra_id     VARCHAR(36)
         REFERENCES concepto_tns(id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS concepto_tns_devolucion_id UUID
+    ADD COLUMN IF NOT EXISTS concepto_tns_devolucion_id VARCHAR(36)
         REFERENCES concepto_tns(id) ON DELETE SET NULL;
 
 COMMENT ON COLUMN cuentas_contables.concepto_tns_compra_id
