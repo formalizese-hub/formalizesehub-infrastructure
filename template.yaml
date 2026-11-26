@@ -353,6 +353,10 @@ Resources:
                 Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:formalizese/email-poller/gmail-credentials*
               - Effect: Allow
                 Action:
+                  - secretsmanager:DescribeSecret
+                Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:formalizese/${Environment}/cert/*
+              - Effect: Allow
+                Action:
                   - lambda:InvokeFunction
                 Resource: !Sub arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:formalizese-invoice-processing-${Environment}
               - Effect: Allow
@@ -672,6 +676,7 @@ Resources:
           REDISTRIBUCION_EMITIDAS_QUEUE_URL: !Ref RedistribucionEmitidasQueue
           CAUSACION_DETALLE_QUEUE_URL: !Ref CausacionDetalleQueue
           DIAN_SOAP_QUEUE_URL: !Ref DianSoapQueue
+          ENV: !Ref Environment
       Events:
         Api:
           Type: Api
