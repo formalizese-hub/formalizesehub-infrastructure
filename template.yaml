@@ -570,6 +570,12 @@ Resources:
             RestApiId: !Ref FormalizeSEApi
             Path: /descargas
             Method: GET
+        ReporteComprasProveedoresApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref FormalizeSEApi
+            Path: /reportes/compras/proveedores
+            Method: GET
 
   DetalleDescargaFunction:
     Type: AWS::Serverless::Function
